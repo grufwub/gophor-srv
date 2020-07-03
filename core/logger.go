@@ -40,17 +40,17 @@ type StdLogger struct{}
 
 // Info logs to log.Logger with info level prefix
 func (l *StdLogger) Info(fmt string, args ...interface{}) {
-	log.Printf("I :: "+fmt, args...)
+	log.Printf(":: I :: "+fmt, args...)
 }
 
 // Error logs to log.Logger with error level prefix
 func (l *StdLogger) Error(fmt string, args ...interface{}) {
-	log.Printf("E :: "+fmt, args...)
+	log.Printf(":: E :: "+fmt, args...)
 }
 
 // Fatal logs to standard log with fatal prefix and terminates program
 func (l *StdLogger) Fatal(fmt string, args ...interface{}) {
-	log.Fatalf("F :: "+fmt, args...)
+	log.Fatalf(":: F :: "+fmt, args...)
 }
 
 // Logger implements LoggerInterface to log to output using underlying log.Logger

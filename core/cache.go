@@ -27,46 +27,45 @@ func NewLRUCacheMap(size int) *LRUCacheMap {
 
 // Get returns file from LRUCacheMap for key
 func (lru *LRUCacheMap) Get(key string) (*File, bool) {
-	elem, ok := lru.hashMap[key]
+	lElem, ok := lru.hashMap[key]
 	if !ok {
 		return nil, ok
 	}
 
 	// Move element to front of the list
-	lru.list.MoveToFront(elem)
+	lru.list.MoveToFront(lElem)
 
 	// Get Element and return *File value from it
-	element, _ := elem.Value.(*Element)
+	element, _ := lElem.Value.(*Element)
 	return element.value, ok
 }
 
 // Put file in LRUCacheMap at key
 func (lru *LRUCacheMap) Put(key string, value *File) {
-	elem := lru.list.PushFront(value)
-	lru.hashMap[key] = elem
+	lElem := lru.list.PushFront(&Element{key, value})
+	lru.hashMap[key] = lElem
 
 	if lru.list.Len() > lru.size {
 		// Get element at back of list and Element from it
-		elem = lru.list.Back()
-		element, _ := elem.Value.(*Element)
+		lElem = lru.list.Back()
+		element, _ := lElem.Value.(*Element)
 
 		// Delete entry in hashMap with key from Element, and list
 		delete(lru.hashMap, element.key)
-		lru.list.Remove(elem)
+		lru.list.Remove(lElem)
 	}
 }
 
 // Remove file in LRUCacheMap with key
 func (lru *LRUCacheMap) Remove(key string) {
-	elem, ok := lru.hashMap[key]
+	lElem, ok := lru.hashMap[key]
 	if !ok {
 		return
 	}
 
-	// Delete entry in hashMap with key from Element, and list
-	element, _ := elem.Value.(*Element)
-	delete(lru.hashMap, element.key)
-	lru.list.Remove(elem)
+	// Delete entry in hashMap and list
+	delete(lru.hashMap, key)
+	lru.list.Remove(lElem)
 }
 
 // Iterate performsn an iteration over all key:value pairs in LRUCacheMap with supplied function

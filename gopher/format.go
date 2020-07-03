@@ -14,7 +14,7 @@ func formatName(name string) string {
 	if len(name) > pageWidth {
 		return name[:pageWidth-4] + "...\t"
 	}
-	return name
+	return name + "\t"
 }
 
 // formatSelector is an internal function to format a gopher line selector string
@@ -42,7 +42,7 @@ func buildInfoLine(line string) []byte {
 
 // buildErrorLine is an internal function that builds a gopher error line string
 func buildErrorLine(selector string) []byte {
-	return []byte(string(typeError) + selector + "\r\n.")
+	return []byte(string(typeError) + selector + "\r\n" + ".\r\n")
 }
 
 // buildFooter is an internal function that formats a raw gopher footer ready to attach to end of gophermaps (including DOS line-end)
@@ -58,7 +58,7 @@ func buildFooter(raw string) []byte {
 		}
 	}
 
-	return append(ret, []byte("\r\n")...)
+	return append(ret, []byte(".\r\n")...)
 }
 
 // footerLineSeparator is an internal function that generates a footer line separator string

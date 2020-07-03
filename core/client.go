@@ -13,18 +13,16 @@ const (
 
 // Client holds onto an open Conn to a client, along with connection information
 type Client struct {
-	conn     *Conn
-	ip       *net.IP
-	port     string
-	hostIP   *net.IP
-	hostPort string
+	conn *Conn
+	ip   *net.IP
+	port string
 }
 
 // NewClient returns a new client based on supplied net.TCPConn
 func NewClient(conn *net.TCPConn) *Client {
 	addr, _ := conn.RemoteAddr().(*net.TCPAddr)
 	ip, port := &addr.IP, strconv.Itoa(addr.Port)
-	return &Client{WrapConn(conn), ip, port, IP, Port}
+	return &Client{WrapConn(conn), ip, port}
 }
 
 // Conn returns the underlying conn
@@ -61,31 +59,6 @@ func (c *Client) IP() string {
 // Port returns the client's connected port
 func (c *Client) Port() string {
 	return c.port
-}
-
-// SetHostIP sets a host ip directly
-func (c *Client) SetHostIP(ip *net.IP) {
-	c.hostIP = ip
-}
-
-// ParseHostIP parses a host IP from a string
-func (c *Client) ParseHostIP(ip string) Error {
-	newIP := net.ParseIP(ip)
-	if newIP != nil {
-		return NewError(InvalidIPErr)
-	}
-	c.ip = &newIP
-	return nil
-}
-
-// HostIP returns the IP string of the host the client is connected to
-func (c *Client) HostIP() string {
-	return c.hostIP.String()
-}
-
-// HostPort returns the port string of the host the client is connected to
-func (c *Client) HostPort() string {
-	return c.hostPort
 }
 
 // LogInfo logs to the global access logger with the client IP as a prefix

@@ -1,13 +1,14 @@
 package core
 
 import (
+	"path"
 	"regexp"
 	"strings"
 )
 
 var (
 	// cgiDir is a precompiled regex statement to check if a string matches the server's CGI directory
-	cgiDir *regexp.Regexp
+	cgiDirRegex *regexp.Regexp
 
 	// WithinCGIDir returns whether a path is within the server's specified CGI scripts directory
 	WithinCGIDir func(*Path) bool
@@ -35,7 +36,17 @@ type PathRemap struct {
 }
 
 func compileCGIRegex(cgiDir string) *regexp.Regexp {
-	return regexp.
+	var abs string
+	if path.IsAbs(cgiDir) {
+		if !strings.HasPrefix(cgiDir, Root) {
+			SystemLog.Fatal("CGI directory must not be outside server root!")
+		}
+
+		abs = cgiDir
+	} else {
+		abs = path.Join(Root, cgiDir)
+	}
+	return regexp.MustCompile(`^` + abs + `(|/.*)$`)
 }
 
 // compileRestrictedPathsRegex turns a string of restricted paths into a slice of compiled regular expressions
@@ -94,17 +105,17 @@ func compilePathRemapRegex(remaps string) []*PathRemap {
 	return pathRemaps
 }
 
-func withinCGIDirEnabled(path *Path) bool {
-	return cgiDir.MatchString(path.Relative())
+func withinCGIDirEnabled(p *Path) bool {
+	return cgiDirRegex.MatchString(p.Relative())
 }
 
-func withinCGIDirDisabled(path *Path) bool {
+func withinCGIDirDisabled(p *Path) bool {
 	return false
 }
 
-func isRestrictedPathEnabled(path *Path) bool {
+func isRestrictedPathEnabled(p *Path) bool {
 	for _, regex := range restrictedPaths {
-		if regex.MatchString(path.Relative()) {
+		if regex.MatchString(p.Relative()) {
 			return true
 		}
 	}

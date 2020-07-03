@@ -8,4 +8,5 @@ var (
 func configure(width uint, footerText string) {
 	pageWidth = int(width)
 	footer = buildFooter(footerText)
+	gophermapRegex = compileGophermapRegex()
 }

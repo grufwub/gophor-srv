@@ -1,0 +1,16 @@
+TODO:
+    - sort out error codes (in order, string for each)
+    - neaten up config functions
+    - write CGI implementation + HTTP header stripping
+    - write descriptions for each function
+    - ensure consistency with private/exported functions within packages
+    - ensure consistent code commenting
+    - group together functions where possible
+    - ensure consistent naming of variables (e.g. naming (p *Path) to avoid conflict with package 'path')
+    - improve variable naming of remappedPaths (requests?), restrictedPaths etc
+    - write initial changedir implementation (?)
+    - write gopher user dirs implementation (?) -- sort of conflicts with changedir 
+    - improve error messages
+    - write gemini implementation (LONG TERM)
+    - write tests (LONG TERM)
+    - general tidying

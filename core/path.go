@@ -54,6 +54,21 @@ func (p *Path) Selector() string {
 	return formatSelector(p.rel)
 }
 
+func (p *Path) Dir() string {
+	dir := p.rel
+	last := len(dir) - 1
+
+	for last > 0 {
+		dir = dir[:last-1]
+		if dir[last] == '/' {
+			break
+		}
+		last--
+	}
+
+	return dir
+}
+
 // JoinRelative .
 func (p *Path) JoinRelative(newRel string) string {
 	return path.Join(p.rel, newRel)

@@ -16,7 +16,7 @@ var (
 )
 
 type GophermapSection interface {
-	RenderAndWrite(*core.Client, *core.Path) core.Error
+	RenderAndWrite(*core.Client) core.Error
 }
 
 func readGophermap(fd *os.File, path *core.Path) ([]GophermapSection, core.Error) {
@@ -42,6 +42,7 @@ func readGophermap(fd *os.File, path *core.Path) ([]GophermapSection, core.Error
 			case typeInfoNotStated:
 				// Append TypeInfo to beginning of line
 				sections = append(sections, &TextSection{buildInfoLine(line)})
+				return true
 
 			case typeTitle:
 				// Reformat title line to send as info line with appropriate selector
@@ -64,8 +65,7 @@ func readGophermap(fd *os.File, path *core.Path) ([]GophermapSection, core.Error
 
 			case typeSubGophermap:
 				// Parse new Path and parameters
-				var request core.Request
-				request, returnErr = parseLineRequest(path, line[1:])
+				request := parseInternalRequest(path, line[1:])
 				if returnErr != nil {
 					return false
 				} else if request.Path().Relative() == "" || request.Path().Relative() == path.Relative() {
@@ -74,13 +74,14 @@ func readGophermap(fd *os.File, path *core.Path) ([]GophermapSection, core.Error
 				}
 
 				// Open FD
-				fd, returnErr = core.FileSystem.OpenFile(request.Path())
+				var subFD *os.File
+				subFD, returnErr = core.FileSystem.OpenFile(request.Path())
 				if returnErr != nil {
 					return false
 				}
 
 				// Get stat
-				stat, err := fd.Stat()
+				stat, err := subFD.Stat()
 				if err != nil {
 					returnErr = core.WrapError(core.FileStatErr, err)
 					return false
@@ -91,7 +92,7 @@ func readGophermap(fd *os.File, path *core.Path) ([]GophermapSection, core.Error
 
 				// Handle CGI script
 				if core.WithinCGIDir(request.Path()) {
-					sections = append(sections, &CGISection{})
+					sections = append(sections, &CGISection{request})
 					return true
 				}
 
@@ -108,7 +109,7 @@ func readGophermap(fd *os.File, path *core.Path) ([]GophermapSection, core.Error
 				}
 
 				// Handle gophermap
-				sections = append(sections, &GophermapSection{})
+				sections = append(sections, &SubgophermapSection{})
 				return true
 
 			case typeEnd:
@@ -117,7 +118,8 @@ func readGophermap(fd *os.File, path *core.Path) ([]GophermapSection, core.Error
 
 			case typeEndBeginList:
 				// Append DirectorySection object then break, as-with typeEnd
-				sections = append(sections, &DirectorySection{hidden})
+				dirPath := core.NewPath(path.Root(), path.Dir())
+				sections = append(sections, &DirectorySection{hidden, dirPath})
 				return false
 
 			default:
@@ -142,23 +144,27 @@ type TextSection struct {
 	contents []byte
 }
 
-func (s *TextSection) RenderAndWrite(client *core.Client, path *core.Path) core.Error {
+func (s *TextSection) RenderAndWrite(client *core.Client) core.Error {
 	return client.Conn().WriteBytes(s.contents)
 }
 
 type DirectorySection struct {
 	hidden map[string]bool
+	path   *core.Path
 }
 
-func (s *DirectorySection) RenderAndWrite(client *core.Client, path *core.Path) core.Error {
-	fd, err := core.FileSystem.OpenFile(path)
+func (s *DirectorySection) RenderAndWrite(client *core.Client) core.Error {
+	fd, err := core.FileSystem.OpenFile(s.path)
 	if err != nil {
 		return err
 	}
 
+	// Slice to write
 	dirContents := make([]byte, 0)
+
+	// Scan directory and build lines
 	err = core.FileSystem.ScanDirectory(fd, func(file os.FileInfo) {
-		filePath := core.NewPath(path.Root(), path.JoinRelative(file.Name()))
+		filePath := core.NewPath(s.path.Root(), s.path.JoinRelative(file.Name()))
 
 		// Skip hidden or restricted files
 		_, ok := s.hidden[filePath.Relative()]
@@ -188,11 +194,13 @@ func (s *DirectorySection) RenderAndWrite(client *core.Client, path *core.Path) 
 	return client.Conn().WriteBytes(dirContents)
 }
 
-type FileSection struct{}
+type FileSection struct {
+	path *core.Path
+}
 
-func (s *FileSection) RenderAndWrite(client *core.Client, path *core.Path) core.Error {
+func (s *FileSection) RenderAndWrite(client *core.Client) core.Error {
 	// Open FD for the file
-	fd, err := core.FileSystem.OpenFile(path)
+	fd, err := core.FileSystem.OpenFile(s.path)
 	if err != nil {
 		return err
 	}
@@ -207,10 +215,38 @@ func (s *FileSection) RenderAndWrite(client *core.Client, path *core.Path) core.
 	return client.Conn().WriteBytes(b)
 }
 
-type CGISection struct {
-	request *Request
+type SubgophermapSection struct {
+	path *core.Path
 }
 
-func (s *CGISection) RenderAndWrite(client *core.Client, path *core.Path) core.Error {
+func (s *SubgophermapSection) RenderAndWrite(client *core.Client) core.Error {
+	// Get FD for gophermap
+	fd, err := core.FileSystem.OpenFile(s.path)
+	if err != nil {
+		return err
+	}
 
+	// Read gophermap into sections
+	sections, err := readGophermap(fd, s.path)
+	if err != nil {
+		return err
+	}
+
+	// Write each of the sections (AAAA COULD BE RECURSIONNNNN)
+	for _, section := range sections {
+		err := section.RenderAndWrite(client)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type CGISection struct {
+	request core.Request
+}
+
+func (s *CGISection) RenderAndWrite(client *core.Client) core.Error {
+	return core.ExecuteCGIScript(client, s.request)
 }

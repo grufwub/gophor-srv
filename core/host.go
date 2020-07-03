@@ -1,16 +1,11 @@
 package core
 
-import "net"
-
 var (
 	// Root stores the server's root directory
 	Root string
 
-	// IP stores the server's bound IP
-	IP *net.IP
-
-	// IPVersion stores the host IP version used
-	IPVersion string
+	// BindAddr stores the server's bound IP
+	BindAddr string
 
 	// Hostname stores the host's outward hostname
 	Hostname string

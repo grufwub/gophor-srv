@@ -33,6 +33,9 @@ func Configure(sysLogOut string,
 	cacheMonitorFreq time.Duration,
 	cacheFileMax float64,
 	cacheSize uint,
+	restrictedPathsList string,
+	remappedPathsList string,
+	cgiDir string,
 	serveFunc func(*Client)) {
 
 	// Setup global loggers
@@ -46,6 +49,7 @@ func Configure(sysLogOut string,
 	// Setup host information
 	Root = root
 	Hostname = hostname
+	BindAddr = bindAddr
 	Port = strconv.Itoa(int(port))
 	FwdPort = strconv.Itoa(int(fwdPort))
 
@@ -53,7 +57,7 @@ func Configure(sysLogOut string,
 	var err Error
 	serverListener, err = NewListener(bindAddr, Port)
 	if err != nil {
-		SystemLog.Fatal("Failed to start listener on %s:%s (%s)", bindAddr, Port, err.Error())
+		SystemLog.Fatal("Failed to start listener on %s:%s (%s)", BindAddr, Port, err.Error())
 	}
 
 	// Setup global conn settings
@@ -68,6 +72,30 @@ func Configure(sysLogOut string,
 	monitorSleepTime = cacheMonitorFreq
 	fileSizeMax = int64(1048576.0 * cacheFileMax) // gets megabytes value in bytes
 	FileSystem = NewFileSystemObject(int(cacheSize))
+
+	// If no restricted files provided, set to the disabled function. Else, compile and enable
+	if restrictedPathsList == "" {
+		IsRestrictedPath = isRestrictedPathDisabled
+	} else {
+		restrictedPaths = compileRestrictedPathsRegex(restrictedPathsList)
+		IsRestrictedPath = isRestrictedPathEnabled
+	}
+
+	// If no remapped files provided, set to the disabled function. Else, compile and enable
+	if remappedPathsList == "" {
+		RemapRequest = remapRequestDisabled
+	} else {
+		remappedPaths = compilePathRemapRegex(remappedPathsList)
+		RemapRequest = remapRequestEnabled
+	}
+
+	// If no CGI dir supplied, set to disabled function. Else, compile and enable
+	if cgiDir == "" {
+		WithinCGIDir = withinCGIDirDisabled
+	} else {
+		cgiDirRegex = compileCGIRegex(cgiDir)
+		WithinCGIDir = withinCGIDirEnabled
+	}
 
 	// Set serve function
 	serve = serveFunc
@@ -84,7 +112,7 @@ func Start() {
 	go FileSystem.StartMonitor()
 
 	// Start the listener
-	SystemLog.Info("Listening on: %s:%s (%s:%s)", IP.String(), Port, Hostname, FwdPort)
+	SystemLog.Info("Listening on: %s:%s (%s:%s)", BindAddr, Port, Hostname, FwdPort)
 	go func() {
 		for {
 			client, err := serverListener.Accept()

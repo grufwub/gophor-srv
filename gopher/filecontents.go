@@ -35,7 +35,7 @@ type GophermapContents struct {
 // WriteToClient writes the current contents of FileContents to the client
 func (gc *GophermapContents) WriteToClient(client *core.Client, path *core.Path) core.Error {
 	for _, section := range gc.sections {
-		err := section.RenderAndWrite(client, path)
+		err := section.RenderAndWrite(client)
 		if err != nil {
 			return err
 		}

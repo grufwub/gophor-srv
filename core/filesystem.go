@@ -14,6 +14,7 @@ const (
 	FileOpenErr      ErrorCode = -9
 	FileStatErr      ErrorCode = -10
 	FileReadErr      ErrorCode = -11
+	FileTypeErr      ErrorCode = -25
 	DirectoryReadErr ErrorCode = -12
 )
 
@@ -189,22 +190,63 @@ func (fs *FileSystemObject) ScanDirectory(fd *os.File, iterator func(os.FileInfo
 	return nil
 }
 
-// Fetch attempts to get a file from the cache, else gets a copy from disk to place in the cache, then performs supplied operation on this file
-func (fs *FileSystemObject) Fetch(path *Path, newFileContents func(*Path) FileContents, fileOperation func(*File, *Path) Error) Error {
-	// First get cache readlock
+// HandleClient .
+func (fs *FileSystemObject) HandleClient(client *Client, request Request, newFileContents func(*Path) FileContents, handleDirectory func(*FileSystemObject, *Client, *os.File, *Path) Error) Error {
+	// First check for file on disk
+	fd, err := fs.OpenFile(request.Path())
+	if err != nil {
+		// Get read-lock, defer unlock
+		fs.RLock()
+		defer fs.RUnlock()
+
+		// Don't throw in the towel yet! Check for generated file in cache
+		file, ok := fs.cache.Get(request.Path().Absolute())
+		if !ok {
+			return err
+		}
+
+		// We got a generated file! Close and send as-is
+		return file.WriteToClient(client, request.Path())
+	}
+	defer fd.Close()
+
+	// Get stat
+	stat, statErr := fd.Stat()
+	if err != nil {
+		// Unlock, return error
+		fs.RUnlock()
+		return WrapError(FileStatErr, statErr)
+	}
+
+	switch {
+	// Directory
+	case stat.Mode()&os.ModeDir != 0:
+		return handleDirectory(fs, client, fd, request.Path())
+
+	// Regular file
+	case stat.Mode()&os.ModeType == 0:
+		// Execute script if within CGI dir
+		if WithinCGIDir(request.Path()) {
+			return ExecuteCGIScript(client, request)
+		}
+
+		// Else just fetch
+		return fs.fetchFile(client, fd, request.Path(), newFileContents)
+
+	// Unsupported type
+	default:
+		return NewError(FileTypeErr)
+	}
+}
+
+func (fs *FileSystemObject) fetchFile(client *Client, fd *os.File, path *Path, newFileContents func(*Path) FileContents) Error {
+	// Get cache read lock, defer unlock
 	fs.RLock()
+	defer fs.RUnlock()
 
 	// Now check for file in cache
 	file, ok := fs.cache.Get(path.Absolute())
 	if !ok {
-		// File not in cache, try get from disk!
-		fd, err := fs.OpenFile(path)
-		if err != nil {
-			// Unlock, return error
-			fs.RUnlock()
-			return err
-		}
-
 		// Create new file contents with supplied function
 		contents := newFileContents(path)
 
@@ -212,10 +254,9 @@ func (fs *FileSystemObject) Fetch(path *Path, newFileContents func(*Path) FileCo
 		file = NewFile(contents)
 
 		// Cache the file contents
-		err = file.CacheContents(fd, path)
+		err := file.CacheContents(fd, path)
 		if err != nil {
 			// Unlock, return error
-			fs.RUnlock()
 			return err
 		}
 
@@ -240,28 +281,11 @@ func (fs *FileSystemObject) Fetch(path *Path, newFileContents func(*Path) FileCo
 			file.RUnlock()
 			file.Lock()
 
-			// Get FD from disk
-			fd, err := fs.OpenFile(path)
-			if err != nil {
-				// File not on disk, remove from cache (in new goroutine)
-				go func() {
-					fs.Lock()
-					fs.cache.Remove(path.Absolute())
-					fs.Unlock()
-				}()
-
-				// Unlock mutexes, return error
-				file.Unlock()
-				fs.RUnlock()
-				return err
-			}
-
 			// Refresh file contents
-			err = file.CacheContents(fd, path)
+			err := file.CacheContents(fd, path)
 			if err != nil {
-				// Unlock mutexes, return error
+				// Unlock file, return error
 				file.Unlock()
-				fs.RUnlock()
 				return err
 			}
 
@@ -271,12 +295,7 @@ func (fs *FileSystemObject) Fetch(path *Path, newFileContents func(*Path) FileCo
 		}
 	}
 
-	// Defer mutex unlocks
-	defer func() {
-		fs.RUnlock()
-		file.RUnlock()
-	}()
-
-	// Perform file operation and return
-	return fileOperation(file, path)
+	// Defer file unlock, write to client
+	defer file.RUnlock()
+	return file.WriteToClient(client, path)
 }
