@@ -153,3 +153,40 @@ func getItemType(name string) ItemType {
 		return typeDefault
 	}
 }
+
+// parseLineType parses a gophermap's line type based on first char and contents
+func parseLineType(line string) ItemType {
+	lineLen := len(line)
+
+	if lineLen == 0 {
+		return typeInfoNotStated
+	}
+
+	// Get ItemType for first char
+	t := ItemType(line[0])
+
+	if lineLen == 1 {
+		// The only accepted types for length 1 line below:
+		t := ItemType(line[0])
+		if t == typeEnd ||
+			t == typeEndBeginList ||
+			t == typeComment ||
+			t == typeInfo ||
+			t == typeTitle {
+			return t
+		}
+		return typeUnknown
+	} else if !strings.Contains(line, "\t") {
+		// The only accepted types for length >= 1 and with a tab
+		if t == typeComment ||
+			t == typeTitle ||
+			t == typeInfo ||
+			t == typeHiddenFile ||
+			t == typeSubGophermap {
+			return t
+		}
+		return typeInfoNotStated
+	}
+
+	return t
+}

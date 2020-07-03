@@ -8,8 +8,8 @@ import (
 
 // FileContents provides an interface for cacheing, rendering and getting cache'd contents of a file
 type FileContents interface {
-	WriteToClient(*Client) Error
-	Load(*os.File) Error
+	WriteToClient(*Client, *Path) Error
+	Load(*os.File, *Path) Error
 	Clear()
 }
 
@@ -19,12 +19,12 @@ type GeneratedFileContents struct {
 }
 
 // WriteToClient writes the generated file contents to the client
-func (fc *GeneratedFileContents) WriteToClient(client *Client) Error {
+func (fc *GeneratedFileContents) WriteToClient(client *Client, path *Path) Error {
 	return client.Conn().WriteBytes(fc.content)
 }
 
 // Load does nothing
-func (fc *GeneratedFileContents) Load(fd *os.File) Error { return nil }
+func (fc *GeneratedFileContents) Load(fd *os.File, path *Path) Error { return nil }
 
 // Clear does nothing
 func (fc *GeneratedFileContents) Clear() {}
@@ -83,11 +83,11 @@ func (f *File) UpdateRefreshTime() {
 }
 
 // CacheContents caches the file contents using the supplied file descriptor
-func (f *File) CacheContents(fd *os.File) Error {
+func (f *File) CacheContents(fd *os.File, path *Path) Error {
 	f.contents.Clear()
 
 	// Load the file contents into cache
-	err := f.contents.Load(fd)
+	err := f.contents.Load(fd, path)
 	if err != nil {
 		return err
 	}
@@ -99,6 +99,6 @@ func (f *File) CacheContents(fd *os.File) Error {
 }
 
 // WriteToClient writes the cached file contents to the supplied client
-func (f *File) WriteToClient(client *Client) Error {
-	return f.contents.WriteToClient(client)
+func (f *File) WriteToClient(client *Client, path *Path) Error {
+	return f.contents.WriteToClient(client, path)
 }

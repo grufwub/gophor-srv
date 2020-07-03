@@ -1,6 +1,9 @@
 package core
 
-import "path"
+import (
+	"path"
+	"strings"
+)
 
 // Specific Path error codes
 const (
@@ -9,8 +12,26 @@ const (
 
 // Path safely holds a file path
 type Path struct {
-	root string
-	rel  string
+	root string // root dir
+	rel  string // relative path
+	sel  string // selector path
+}
+
+// NewPath returns a new Path structure
+func NewPath(root, rel string) *Path {
+	return &Path{root, rel, formatSelector(rel)}
+}
+
+// NewSanitizedPath returns a new sanitized Path structure
+func NewSanitizedPath(root, rel string) *Path {
+	return NewPath(root, sanitizeRawPath(root, rel))
+}
+
+// Remap remaps a Path to a new relative path, keeping previous selector
+func (p *Path) Remap(newRel string) *Path {
+	newPath := NewPath(p.root, sanitizeRawPath(p.root, newRel))
+	newPath.sel = p.sel
+	return newPath
 }
 
 // Root returns file's root directory
@@ -33,20 +54,43 @@ func (p *Path) Selector() string {
 	return formatSelector(p.rel)
 }
 
+// JoinRelative .
+func (p *Path) JoinRelative(newRel string) string {
+	return path.Join(p.rel, newRel)
+}
+
 // formatSelector formats a relative path to a selector path
-func formatSelector(relPath string) string {
-	switch len(relPath) {
+func formatSelector(rel string) string {
+	switch len(rel) {
 	case 0:
 		return "/"
 	case 1:
-		if relPath[0] == '.' {
+		if rel[0] == '.' {
 			return "/"
 		}
-		return "/" + relPath
+		return "/" + rel
 	default:
-		if relPath[0] == '/' {
-			return relPath
+		if rel[0] == '/' {
+			return rel
 		}
-		return "/" + relPath
+		return "/" + rel
 	}
+}
+
+// sanitizeRawPath takes a root and relative path, and returns a sanitized relative path
+func sanitizeRawPath(root, rel string) string {
+	// Start by cleaning
+	rel = path.Clean(rel)
+
+	if path.IsAbs(rel) {
+		// Absolute path, try trimming root and leading '/'
+		rel = strings.TrimPrefix(strings.TrimPrefix(rel, root), "/")
+	} else {
+		// Relative path, if back dir traversal give them server root
+		if strings.HasPrefix(rel, "..") {
+			rel = ""
+		}
+	}
+
+	return rel
 }

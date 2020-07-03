@@ -25,28 +25,28 @@ func serve(client *core.Client) {
 		return
 	}
 
-	// Generate request
-	request, err := parseRequest(line)
+	// Parse supplied URL
+	path, params, err := core.ParseSafeURL(line)
 	if err != nil {
 		handleError(client, err)
 		return
 	}
 
+	// Create new request from path and params
+	request := NewSanitizedRequest(core.Root, path, params)
+
 	// Check for remap
-	request = core.RemapRequest(
-		request,
-		func(remap *core.PathRemap, request core.Request) core.Request {
-			//
-			return nil
-		},
-	)
+	request = core.RemapRequest(request)
 
 	// Handle the request!
 	err = core.FileSystem.Fetch(
 		request.Path(),
 		func(path *core.Path) core.FileContents {
-			//
-			return nil
+			// Return FileContents or GophermapContents depending on file name
+			if isGophermap(path) {
+				return &GophermapContents{}
+			}
+			return &FileContents{}
 		},
 		func(file *core.File) core.Error {
 			//

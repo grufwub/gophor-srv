@@ -172,7 +172,7 @@ func (fs *FileSystemObject) ScanFile(fd *os.File, iterator func(string) bool) Er
 }
 
 // ScanDirectory reads the contents of a directory and performs the iterator function on each os.FileInfo entry returned
-func (fs *FileSystemObject) ScanDirectory(fd *os.File, path *Path, iterator func(*Path, os.FileInfo)) Error {
+func (fs *FileSystemObject) ScanDirectory(fd *os.File, iterator func(os.FileInfo)) Error {
 	dirList, err := fd.Readdir(-1)
 	if err != nil {
 		return WrapError(DirectoryReadErr, err)
@@ -183,14 +183,14 @@ func (fs *FileSystemObject) ScanDirectory(fd *os.File, path *Path, iterator func
 
 	// Walk through the directory list using supplied iterator function
 	for _, info := range dirList {
-		iterator(path, info)
+		iterator(info)
 	}
 
 	return nil
 }
 
 // Fetch attempts to get a file from the cache, else gets a copy from disk to place in the cache, then performs supplied operation on this file
-func (fs *FileSystemObject) Fetch(path *Path, newFileContents func(*Path) FileContents, fileOperation func(*File) Error) Error {
+func (fs *FileSystemObject) Fetch(path *Path, newFileContents func(*Path) FileContents, fileOperation func(*File, *Path) Error) Error {
 	// First get cache readlock
 	fs.RLock()
 
@@ -212,7 +212,7 @@ func (fs *FileSystemObject) Fetch(path *Path, newFileContents func(*Path) FileCo
 		file = NewFile(contents)
 
 		// Cache the file contents
-		err = file.CacheContents(fd)
+		err = file.CacheContents(fd, path)
 		if err != nil {
 			// Unlock, return error
 			fs.RUnlock()
@@ -257,7 +257,7 @@ func (fs *FileSystemObject) Fetch(path *Path, newFileContents func(*Path) FileCo
 			}
 
 			// Refresh file contents
-			err = file.CacheContents(fd)
+			err = file.CacheContents(fd, path)
 			if err != nil {
 				// Unlock mutexes, return error
 				file.Unlock()
@@ -278,5 +278,5 @@ func (fs *FileSystemObject) Fetch(path *Path, newFileContents func(*Path) FileCo
 	}()
 
 	// Perform file operation and return
-	return fileOperation(file)
+	return fileOperation(file, path)
 }
