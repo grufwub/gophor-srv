@@ -1,3 +1,3 @@
 #!/bin/sh
 
-go build -o gophor.gopher main_gopher.go
+CC='x86_64-linux-musl-gcc' CGO_ENABLED=1 go build -trimpath -buildmode 'pie' -a -tags 'netgo' -ldflags '-s -w -extldflags "-static"' -o gophor.gopher main_gopher.go
