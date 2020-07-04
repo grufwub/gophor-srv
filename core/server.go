@@ -1,6 +1,7 @@
 package core
 
 import (
+	"flag"
 	"os"
 	"os/signal"
 	"strconv"
@@ -9,96 +10,114 @@ import (
 )
 
 var (
-	// serve is the global serve function
-	serve func(*Client)
-
 	// SigChannel is the global OS signal channel
 	sigChannel chan os.Signal
 )
 
-// Configure sets up all required core global variables for use
-func Configure(sysLogOut string,
-	accLogOut string,
-	root string,
-	bindAddr string,
-	hostname string,
-	port uint,
-	fwdPort uint,
-	readDeadline time.Duration,
-	writeDeadline time.Duration,
-	cReadBufSize uint,
-	cWriteBufSize uint,
-	cReadMax uint,
-	fReadBufSize uint,
-	cacheMonitorFreq time.Duration,
-	cacheFileMax float64,
-	cacheSize uint,
-	restrictedPathsList string,
-	remappedPathsList string,
-	cgiDir string,
-	serveFunc func(*Client)) {
+func ParseFlagsAndSetup() {
+	sysLog := flag.String(SysLogFlagStr, "stdout", SysLogDescStr)
+	accLog := flag.String(AccLogFlagStr, "stdout", AccLogDescStr)
+	flag.StringVar(&Root, RootFlagStr, "/var/gopher", RootDescStr)
+	flag.StringVar(&BindAddr, BindAddrFlagStr, "", BindAddrDescStr)
+	flag.StringVar(&Hostname, HostnameFlagStr, "localhost", HostnameDescStr)
+	port := flag.Uint(PortFlagStr, 70, PortDescStr)
+	fwdPort := flag.Uint(FwdPortFlagStr, 0, FwdPortDescStr)
+	flag.DurationVar(&connReadDeadline, ReadDeadlineFlagStr, time.Duration(time.Second*3), ReadDeadlineDescStr)
+	flag.DurationVar(&connWriteDeadline, WriteDeadlineFlagStr, time.Duration(time.Second*5), WriteDeadlineDescStr)
+	cReadBuf := flag.Uint(ConnReadBufFlagStr, 1024, ConnReadBufDescStr)
+	cWriteBuf := flag.Uint(ConnWriteBufFlagStr, 1024, ConnWriteBufDescStr)
+	cReadMax := flag.Uint(ConnReadMaxFlagStr, 4096, ConnReadMaxDescStr)
+	fReadBuf := flag.Uint(FileReadBufFlagStr, 1024, FileReadBufDescStr)
+	flag.DurationVar(&monitorSleepTime, MonitorSleepTimeFlagStr, time.Duration(time.Second*1), MonitorSleepTimeDescStr)
+	cacheMax := flag.Float64(CacheFileMaxFlagStr, 1.0, CacheFileMaxDescStr)
+	cacheSize := flag.Uint(CacheSizeFlagStr, 100, CacheSizeDescStr)
+	restrictedPathsList := flag.String(RestrictPathsFlagStr, "", RestrictPathsDescStr)
+	remappedPathsList := flag.String(RemapRequestsFlagStr, "", RemapRequestsDescStr)
+	cgiDir := flag.String(CGIDirFlagStr, "", CGIDirDescStr)
+	flag.DurationVar(&maxCGIRunTime, MaxCGITimeFlagStr, time.Duration(time.Second*3), MaxCGITimeDescStr)
+	safePath := flag.String(SafePathFlagStr, "/bin:/usr/bin", SafePathDescStr)
+	httpCompatCGI := flag.Bool(HTTPCompatCGIFlagStr, false, HTTPCompatCGIDescStr)
+	httpPrefixBuf := flag.Uint(HTTPPrefixBufFlagStr, 1024, HTTPPrefixBufDescStr)
 
-	// Setup global loggers
-	SystemLog = setupLogger(sysLogOut)
-	if sysLogOut == accLogOut {
-		AccessLog = SystemLog
-	} else {
-		AccessLog = setupLogger(accLogOut)
+	// Parse flags!
+	flag.Parse()
+
+	// Check valid hostname
+	if Hostname == "" {
+		SystemLog.Fatal("No hostname supplied!")
 	}
 
-	// Setup host information
-	Root = root
-	Hostname = hostname
-	BindAddr = bindAddr
-	Port = strconv.Itoa(int(port))
-	FwdPort = strconv.Itoa(int(fwdPort))
+	// Setup loggers
+	SystemLog = setupLogger(*sysLog)
+	if sysLog == accLog {
+		AccessLog = SystemLog
+	} else {
+		AccessLog = setupLogger(*accLog)
+	}
+
+	// Set port info
+	if *fwdPort == 0 {
+		fwdPort = port
+	}
+	Port = strconv.Itoa(int(*port))
+	FwdPort = strconv.Itoa(int(*fwdPort))
 
 	// Setup listener
 	var err Error
-	serverListener, err = NewListener(bindAddr, Port)
+	serverListener, err = NewListener(BindAddr, Port)
 	if err != nil {
 		SystemLog.Fatal("Failed to start listener on %s:%s (%s)", BindAddr, Port, err.Error())
 	}
 
-	// Setup global conn settings
-	connReadDeadline = readDeadline
-	connWriteDeadline = writeDeadline
-	connReadBufSize = int(cReadBufSize)
-	connWriteBufSize = int(cWriteBufSize)
-	connReadMax = int(cReadMax)
+	// Host buffer sizes
+	connReadBufSize = int(*cReadBuf)
+	connWriteBufSize = int(*cWriteBuf)
+	connReadMax = int(*cReadMax)
+	fileReadBufSize = int(*fReadBuf)
 
-	// Setup global FileSystemObject and related values
-	fileReadBufSize = int(fReadBufSize)
-	monitorSleepTime = cacheMonitorFreq
-	fileSizeMax = int64(1048576.0 * cacheFileMax) // gets megabytes value in bytes
-	FileSystem = NewFileSystemObject(int(cacheSize))
+	// FileSystemObject (and related) setup
+	fileSizeMax = int64(1048576.0 * *cacheMax) // gets megabytes value in bytes
+	FileSystem = NewFileSystemObject(int(*cacheSize))
 
 	// If no restricted files provided, set to the disabled function. Else, compile and enable
-	if restrictedPathsList == "" {
+	if *restrictedPathsList == "" {
+		SystemLog.Info("Path restrictions disabled")
 		IsRestrictedPath = isRestrictedPathDisabled
 	} else {
-		restrictedPaths = compileRestrictedPathsRegex(restrictedPathsList)
+		SystemLog.Info("Path restrictions enabled")
+		restrictedPaths = compileRestrictedPathsRegex(*restrictedPathsList)
 		IsRestrictedPath = isRestrictedPathEnabled
 	}
 
 	// If no remapped files provided, set to the disabled function. Else, compile and enable
-	if remappedPathsList == "" {
+	if *remappedPathsList == "" {
+		SystemLog.Info("Request remapping disabled")
 		RemapRequest = remapRequestDisabled
 	} else {
-		remappedPaths = compilePathRemapRegex(remappedPathsList)
+		SystemLog.Info("Request remapping enabled")
+		remappedPaths = compilePathRemapRegex(*remappedPathsList)
 		RemapRequest = remapRequestEnabled
 	}
 
 	// If no CGI dir supplied, set to disabled function. Else, compile and enable
-	if cgiDir == "" {
+	if *cgiDir == "" {
+		SystemLog.Info("CGI script support disabled")
 		WithinCGIDir = withinCGIDirDisabled
 	} else {
-		cgiDirRegex = compileCGIRegex(cgiDir)
+		SystemLog.Info("CGI script support enabled")
+		cgiDirRegex = compileCGIRegex(*cgiDir)
+		cgiEnv = setupInitialCGIEnv(*safePath)
 		WithinCGIDir = withinCGIDirEnabled
-	}
 
-	// Set serve function
-	serve = serveFunc
+		// Enable HTTP compatible CGI scripts, or not
+		if *httpCompatCGI {
+			SystemLog.Info("CGI HTTP compatibility enabled, prefix buffer: %d", httpPrefixBuf)
+			ExecuteCGIScript = executeCGIScriptStripHTTP
+			httpPrefixBufSize = int(*httpPrefixBuf)
+		} else {
+			ExecuteCGIScript = executeCGIScriptNoHTTP
+		}
+	}
 
 	// Setup signal channel
 	sigChannel = make(chan os.Signal)
@@ -106,7 +125,7 @@ func Configure(sysLogOut string,
 }
 
 // Start begins operation of the server
-func Start() {
+func Start(serve func(*Client)) {
 	// Start the FileSystemObject cache freshness monitor
 	SystemLog.Info("Starting cache monitor with freq: %s", monitorSleepTime)
 	go FileSystem.StartMonitor()

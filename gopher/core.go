@@ -13,6 +13,7 @@ func serve(client *core.Client) {
 	// Receive line from client
 	received, err := client.Conn().ReadLine()
 	if err != nil {
+		client.LogError("Failed to read")
 		handleError(client, err)
 		return
 	}
@@ -25,22 +26,20 @@ func serve(client *core.Client) {
 	line = strings.TrimPrefix(line, "URL:")
 	if len(line) < lenBefore {
 		client.Conn().WriteBytes(generateHTMLRedirect(line))
-		core.AccessLog.Info("Redirecting to: %s", line)
+		client.LogInfo("Redirecting to: %s", line)
 		return
 	}
 
 	// Parse supplied URL
 	path, params, err := core.ParseSafeURL(line)
 	if err != nil {
+		client.LogError("Failed to parse")
 		handleError(client, err)
 		return
 	}
 
 	// Create new request from path and params
 	request := newSanitizedRequest(core.Root, path, params)
-
-	// Check for remap
-	request, _ = core.RemapRequest(request).(*Request)
 
 	// Handle the request!
 	err = core.FileSystem.HandleClient(
@@ -97,9 +96,19 @@ func serve(client *core.Client) {
 	// Final error handling
 	if err != nil {
 		handleError(client, err)
+		client.LogError("Failed to serve: %s", request.Path().Absolute())
+	} else {
+		client.LogInfo("Served: %s", request.Path().Absolute())
 	}
 }
 
 func handleError(client *core.Client, err core.Error) {
+	// Try get response for error code
+	response, ok := generateErrorResponse(err.Code())
+	if ok {
+		client.Conn().WriteBytes(response)
+	}
 
+	// Log this error to system
+	core.SystemLog.Error(err.Error())
 }

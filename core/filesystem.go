@@ -9,15 +9,6 @@ import (
 	"time"
 )
 
-// Specific ErrorCodes for the FileSystem
-const (
-	FileOpenErr      ErrorCode = -9
-	FileStatErr      ErrorCode = -10
-	FileReadErr      ErrorCode = -11
-	FileTypeErr      ErrorCode = -25
-	DirectoryReadErr ErrorCode = -12
-)
-
 var (
 	// FileReadBufSize is the file read buffer size
 	fileReadBufSize int
@@ -192,6 +183,14 @@ func (fs *FileSystemObject) ScanDirectory(fd *os.File, iterator func(os.FileInfo
 
 // HandleClient .
 func (fs *FileSystemObject) HandleClient(client *Client, request Request, newFileContents func(*Path) FileContents, handleDirectory func(*FileSystemObject, *Client, *os.File, *Path) Error) Error {
+	// If restricted, return error
+	if IsRestrictedPath(request.Path()) {
+		return NewError(RestrictedPathErr)
+	}
+
+	// Try remap request
+	request = RemapRequest(request)
+
 	// First check for file on disk
 	fd, err := fs.OpenFile(request.Path())
 	if err != nil {
@@ -221,6 +220,12 @@ func (fs *FileSystemObject) HandleClient(client *Client, request Request, newFil
 	switch {
 	// Directory
 	case stat.Mode()&os.ModeDir != 0:
+		// Don't support CGI script dir enumeration
+		if WithinCGIDir(request.Path()) {
+			return NewError(RestrictedPathErr)
+		}
+
+		// Else enumerate dir
 		return handleDirectory(fs, client, fd, request.Path())
 
 	// Regular file

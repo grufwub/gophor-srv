@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	gopher.Main()
+	gopher.Run()
 }

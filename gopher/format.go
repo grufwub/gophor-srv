@@ -50,7 +50,6 @@ func buildFooter(raw string) []byte {
 	ret := make([]byte, 0)
 
 	if raw != "" {
-		ret = append(ret, buildInfoLine("")...)
 		ret = append(ret, buildInfoLine(footerLineSeparator())...)
 
 		for _, line := range strings.Split(raw, "\n") {

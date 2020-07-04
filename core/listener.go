@@ -2,13 +2,6 @@ package core
 
 import "net"
 
-// Specific listener ErrorCodes
-const (
-	ListenerResolveErr ErrorCode = -4
-	ListenerBeginErr   ErrorCode = -5
-	ListenerAcceptErr  ErrorCode = -6
-)
-
 // serverListener holds the global Listener object
 var serverListener *Listener
 

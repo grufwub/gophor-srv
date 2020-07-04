@@ -5,11 +5,6 @@ import (
 	"strings"
 )
 
-// Specific Path error codes
-const (
-	RestrictedPathErr ErrorCode = -17
-)
-
 // Path safely holds a file path
 type Path struct {
 	root string // root dir

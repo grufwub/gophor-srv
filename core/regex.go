@@ -36,17 +36,14 @@ type PathRemap struct {
 }
 
 func compileCGIRegex(cgiDir string) *regexp.Regexp {
-	var abs string
 	if path.IsAbs(cgiDir) {
 		if !strings.HasPrefix(cgiDir, Root) {
 			SystemLog.Fatal("CGI directory must not be outside server root!")
 		}
-
-		abs = cgiDir
-	} else {
-		abs = path.Join(Root, cgiDir)
+		cgiDir = strings.TrimPrefix(cgiDir, Root)
 	}
-	return regexp.MustCompile(`^` + abs + `(|/.*)$`)
+	SystemLog.Info("CGI directory: %s", cgiDir)
+	return regexp.MustCompile("(?m)" + cgiDir + "(|/.*)$")
 }
 
 // compileRestrictedPathsRegex turns a string of restricted paths into a slice of compiled regular expressions
@@ -61,7 +58,7 @@ func compileRestrictedPathsRegex(restrictions string) []*regexp.Regexp {
 		}
 
 		// Compile the regular expression
-		regex, err := regexp.Compile(expr)
+		regex, err := regexp.Compile("(?m)" + expr + "$")
 		if err != nil {
 			SystemLog.Fatal("Failed compiling restricted path regex: %s", expr)
 		}

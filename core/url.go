@@ -5,10 +5,6 @@ import (
 	"strings"
 )
 
-const (
-	InvalidRequestErr ErrorCode = -20
-)
-
 // ParseSafeURL takes a received strings and safely parses a URL from this, returning path and parameteers
 func ParseSafeURL(received string) (string, string, Error) {
 	// Check for ASCII control bytes

@@ -20,7 +20,7 @@ func setupLogger(output string) LoggerInterface {
 	case "null":
 		return &NullLogger{}
 	default:
-		fd, err := os.OpenFile(output, os.O_APPEND, 0600)
+		fd, err := os.OpenFile(output, os.O_CREATE|os.O_APPEND, 0600)
 		if err != nil {
 			log.Fatalf("Error opening log output %s: %s", output, err.Error())
 		}

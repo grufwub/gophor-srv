@@ -7,13 +7,6 @@ import (
 	"time"
 )
 
-// Specifies conn specific ErrorCodes
-const (
-	ConnWriteErr ErrorCode = -1
-	ConnReadErr  ErrorCode = -2
-	ConnCloseErr ErrorCode = -3
-)
-
 var (
 	// connReadDeadline specifies the connection read deadline
 	connReadDeadline time.Duration
