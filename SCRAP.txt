@@ -1,13 +1,13 @@
 TODO:
-    - add flag descriptions
-    - write descriptions for each function
-    - ensure consistency with private/exported functions within packages
-    - ensure consistent code commenting
+    - add sys log support to client (so relevant sys and acc logs can be matched)
+    - improve core flag string constants
+    - add TLS support (only TLS??)
+    - write gemini implementation
+    - write tests
     - group together functions where possible
-    - ensure consistent naming of variables (e.g. naming (p *Path) to avoid conflict with package 'path')
-    - improve variable naming of remappedPaths (requests?), restrictedPaths etc
-    - write initial changedir implementation (?)
-    - write gopher user dirs implementation (?) -- sort of conflicts with changedir 
-    - write gemini implementation (LONG TERM)
-    - write tests (LONG TERM)
-    - general tidying
+    - move FileContents (default implementation) to core (?)
+    - log formatting options (?)
+    - clean up much of gopher implementation
+    - improve 'cgi-bin' check in directory listings
+    - move all hard-coded strings to string_constants.go
+    - continue ensuring only used variables are exported
