@@ -4,7 +4,9 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"path"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -14,7 +16,11 @@ var (
 	sigChannel chan os.Signal
 )
 
-func ParseFlagsAndSetup() {
+// ParseFlagsAndSetup parses necessary core server flags, and sets up the core ready for Start() to be called
+func ParseFlagsAndSetup(errorMessageFunc func(ErrorCode) string) {
+	// Setup numerous temporary flag variables, and store the rest
+	// directly in their final operating location. Strings are stored
+	// in `string_constants.go` to allow for later localization
 	sysLog := flag.String(SysLogFlagStr, "stdout", SysLogDescStr)
 	accLog := flag.String(AccLogFlagStr, "stdout", AccLogDescStr)
 	flag.StringVar(&Root, RootFlagStr, "/var/gopher", RootDescStr)
@@ -32,20 +38,16 @@ func ParseFlagsAndSetup() {
 	cacheMax := flag.Float64(CacheFileMaxFlagStr, 1.0, CacheFileMaxDescStr)
 	cacheSize := flag.Uint(CacheSizeFlagStr, 100, CacheSizeDescStr)
 	restrictedPathsList := flag.String(RestrictPathsFlagStr, "", RestrictPathsDescStr)
-	remappedPathsList := flag.String(RemapRequestsFlagStr, "", RemapRequestsDescStr)
+	remapRequestsList := flag.String(RemapRequestsFlagStr, "", RemapRequestsDescStr)
 	cgiDir := flag.String(CGIDirFlagStr, "", CGIDirDescStr)
 	flag.DurationVar(&maxCGIRunTime, MaxCGITimeFlagStr, time.Duration(time.Second*3), MaxCGITimeDescStr)
 	safePath := flag.String(SafePathFlagStr, "/bin:/usr/bin", SafePathDescStr)
 	httpCompatCGI := flag.Bool(HTTPCompatCGIFlagStr, false, HTTPCompatCGIDescStr)
 	httpPrefixBuf := flag.Uint(HTTPPrefixBufFlagStr, 1024, HTTPPrefixBufDescStr)
+	flag.StringVar(&userDir, UserDirFlagStr, "", UserDirDescStr)
 
-	// Parse flags!
+	// Parse flags! (including any set by outer calling function)
 	flag.Parse()
-
-	// Check valid hostname
-	if Hostname == "" {
-		SystemLog.Fatal("No hostname supplied!")
-	}
 
 	// Setup loggers
 	SystemLog = setupLogger(*sysLog)
@@ -53,6 +55,14 @@ func ParseFlagsAndSetup() {
 		AccessLog = SystemLog
 	} else {
 		AccessLog = setupLogger(*accLog)
+	}
+
+	// Check valid values for BindAddr and Hostname
+	if Hostname == "" {
+		if BindAddr == "" {
+			SystemLog.Fatal("At least one of hostname or bind-addr must be non-empty!")
+		}
+		Hostname = BindAddr
 	}
 
 	// Set port info
@@ -90,12 +100,12 @@ func ParseFlagsAndSetup() {
 	}
 
 	// If no remapped files provided, set to the disabled function. Else, compile and enable
-	if *remappedPathsList == "" {
+	if *remapRequestsList == "" {
 		SystemLog.Info("Request remapping disabled")
 		RemapRequest = remapRequestDisabled
 	} else {
 		SystemLog.Info("Request remapping enabled")
-		remappedPaths = compilePathRemapRegex(*remappedPathsList)
+		requestRemaps = compileRequestRemapRegex(*remapRequestsList)
 		RemapRequest = remapRequestEnabled
 	}
 
@@ -119,6 +129,26 @@ func ParseFlagsAndSetup() {
 		}
 	}
 
+	// If no user dir supplied, set to disabled function. Else, set user dir and enable
+	if userDir == "" {
+		SystemLog.Info("User directory support disabled")
+		getRequestPath = getRequestPathUserDirDisabled
+	} else {
+		SystemLog.Info("User directory support enabled")
+		getRequestPath = getRequestPathUserDirEnabled
+
+		// Clean the user dir to be safe
+		userDir = path.Clean(userDir)
+		if strings.HasPrefix(userDir, "..") {
+			SystemLog.Fatal("User directory with back-traversal not supported: %s", userDir)
+		} else {
+			SystemLog.Info("User directory: %s", userDir)
+		}
+	}
+
+	// Set ErrorCode->string function
+	getExtendedErrorMessage = errorMessageFunc
+
 	// Setup signal channel
 	sigChannel = make(chan os.Signal)
 	signal.Notify(sigChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
@@ -139,7 +169,11 @@ func Start(serve func(*Client)) {
 				SystemLog.Error(err.Error())
 			}
 
-			go serve(client)
+			// Serve client then close in separate goroutine
+			go func() {
+				serve(client)
+				client.Conn().Close()
+			}()
 		}
 	}()
 

@@ -70,4 +70,7 @@ const (
 
 	HTTPPrefixBufFlagStr = "http-prefix-buf"
 	HTTPPrefixBufDescStr = "Buffer size used for stripping HTTP headers from CGI script output"
+
+	UserDirFlagStr = "user-dir"
+	UserDirDescStr = "User's personal server directory"
 )

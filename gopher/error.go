@@ -2,19 +2,28 @@ package gopher
 
 import "gophor/core"
 
-// Error code response strings
+// Gopher specific error codes
 const (
-	ErrorResponse400 = "400 Bad Request"
-	ErrorResponse401 = "401 Unauthorised"
-	ErrorResponse403 = "403 Forbidden"
-	ErrorResponse404 = "404 Not Found"
-	ErrorResponse408 = "408 Request Time-out"
-	ErrorResponse410 = "410 Gone"
-	ErrorResponse500 = "500 Internal Server Error"
-	ErrorResponse501 = "501 Not Implemented"
-	ErrorResponse503 = "503 Service Unavailable"
+	InvalidGophermapErr  core.ErrorCode = 1
+	SubgophermapIsDirErr core.ErrorCode = 2
+	SubgophermapSizeErr  core.ErrorCode = 3
 )
 
+// generateErrorMessage returns a message for any gopher specific error codes
+func generateErrorMessage(code core.ErrorCode) string {
+	switch code {
+	case InvalidGophermapErr:
+		return "Invalid gophermap"
+	case SubgophermapIsDirErr:
+		return "Subgophermap path is dir"
+	case SubgophermapSizeErr:
+		return "Subgophermap size too large"
+	default:
+		return "Unknown error code"
+	}
+}
+
+// generateErrorResponse takes an error code and generates an error response byte slice
 func generateErrorResponse(code core.ErrorCode) ([]byte, bool) {
 	switch code {
 	case core.ConnWriteErr:
@@ -23,6 +32,12 @@ func generateErrorResponse(code core.ErrorCode) ([]byte, bool) {
 		return buildErrorLine(ErrorResponse503), true
 	case core.ConnCloseErr:
 		return nil, false // no point responding if we couldn't close
+	case core.ListenerResolveErr:
+		return nil, false // not user facing
+	case core.ListenerBeginErr:
+		return nil, false // not user facing
+	case core.ListenerAcceptErr:
+		return nil, false // not user facing
 	case core.InvalidIPErr:
 		return nil, false // not user facing
 	case core.InvalidPortErr:
@@ -64,6 +79,12 @@ func generateErrorResponse(code core.ErrorCode) ([]byte, bool) {
 	case core.CGIStatus503Err:
 		return buildErrorLine(ErrorResponse503), true
 	case core.CGIStatusUnknownErr:
+		return buildErrorLine(ErrorResponse500), true
+	case InvalidGophermapErr:
+		return buildErrorLine(ErrorResponse500), true
+	case SubgophermapIsDirErr:
+		return buildErrorLine(ErrorResponse500), true
+	case SubgophermapSizeErr:
 		return buildErrorLine(ErrorResponse500), true
 	default:
 		return nil, false

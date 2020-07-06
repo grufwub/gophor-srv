@@ -1,10 +1,5 @@
 package core
 
-var (
-	// HandleError is the globally set error handler for errors encountered when responding to a client
-	HandleError func(*Client, Error)
-)
-
 // ErrorCode specifies types of errors for later identification
 type ErrorCode int
 
@@ -45,8 +40,8 @@ type Error interface {
 	Error() string
 }
 
-// GetErrorMessage converts an ErrorCode to string message
-var GetErrorMessage func(ErrorCode) string
+// getExtendedErrorMessage converts an ErrorCode to string message
+var getExtendedErrorMessage func(ErrorCode) string
 
 // getErrorMessage converts an ErrorCode to string message first checking internal codes, next user supplied
 func getErrorMessage(code ErrorCode) string {
@@ -106,7 +101,7 @@ func getErrorMessage(code ErrorCode) string {
 	case CGIStatusUnknownErr:
 		return "CGI status: unknown"
 	default:
-		return GetErrorMessage(code)
+		return getExtendedErrorMessage(code)
 	}
 }
 

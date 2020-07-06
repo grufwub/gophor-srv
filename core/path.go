@@ -12,21 +12,19 @@ type Path struct {
 	sel  string // selector path
 }
 
-// NewPath returns a new Path structure
+// NewPath returns a new Path structure based on supplied root and relative path
 func NewPath(root, rel string) *Path {
 	return &Path{root, rel, formatSelector(rel)}
 }
 
-// NewSanitizedPath returns a new sanitized Path structure
+// NewSanitizedPath returns a new sanitized Path structure based on root and relative path
 func NewSanitizedPath(root, rel string) *Path {
 	return NewPath(root, sanitizeRawPath(root, rel))
 }
 
 // Remap remaps a Path to a new relative path, keeping previous selector
-func (p *Path) Remap(newRel string) *Path {
-	newPath := NewPath(p.root, sanitizeRawPath(p.root, newRel))
-	newPath.sel = p.sel
-	return newPath
+func (p *Path) Remap(newRel string) {
+	p.rel = sanitizeRawPath(p.root, newRel)
 }
 
 // Root returns file's root directory
@@ -34,42 +32,47 @@ func (p *Path) Root() string {
 	return p.root
 }
 
-// Relative returns the file's relative path
+// Relative returns the relative path
 func (p *Path) Relative() string {
 	return p.rel
 }
 
-// Absolute returns the file's absolute path
+// Absolute returns the absolute path
 func (p *Path) Absolute() string {
 	return path.Join(p.root, p.rel)
 }
 
-// Selector returns the file's selector path
+// Selector returns the formatted selector path
 func (p *Path) Selector() string {
-	return formatSelector(p.rel)
+	return p.sel
 }
 
-func (p *Path) Dir() string {
-	dir := p.rel
-	last := len(dir) - 1
-
-	for last > 0 {
-		dir = dir[:last-1]
-		if dir[last] == '/' {
-			break
-		}
-		last--
-	}
-
-	return dir
+// RelativeDir returns the residing dir of the relative path
+func (p *Path) RelativeDir() string {
+	return path.Dir(p.rel)
 }
 
-// JoinRelative .
+// SelectorDir returns the residing dir of the selector path
+func (p *Path) SelectorDir() string {
+	return path.Dir(p.sel)
+}
+
+// Dir returns a Path object at the residing dir of the calling object (keeping separate selector intact)
+func (p *Path) Dir() *Path {
+	return &Path{p.root, p.RelativeDir(), p.SelectorDir()}
+}
+
+// JoinRelative returns a string appended to the current relative path
 func (p *Path) JoinRelative(newRel string) string {
 	return path.Join(p.rel, newRel)
 }
 
-// formatSelector formats a relative path to a selector path
+// JoinPath appends the supplied string to the Path's relative and selector paths
+func (p *Path) JoinPath(toJoin string) *Path {
+	return &Path{p.root, path.Join(p.rel, toJoin), path.Join(p.sel, toJoin)}
+}
+
+// formatSelector formats a relative path to a valid selector path
 func formatSelector(rel string) string {
 	switch len(rel) {
 	case 0:
@@ -103,4 +106,13 @@ func sanitizeRawPath(root, rel string) string {
 	}
 
 	return rel
+}
+
+// sanitizerUserRoot takes a generated user root directory and sanitizes it, returning a bool as to whether it's safe
+func sanitizeUserRoot(root string) (string, bool) {
+	root = path.Clean(root)
+	if !strings.HasPrefix(root, "/home/") && strings.HasSuffix(root, "/"+userDir) {
+		return "", false
+	}
+	return root, true
 }

@@ -1,7 +1,12 @@
 package gopher
 
-import "strings"
+import (
+	"gophor/core"
+	"os"
+	"strings"
+)
 
+// Gophermap line formatting constants
 const (
 	maxSelectorLen = 255
 	nullHost       = "null.host"
@@ -9,7 +14,15 @@ const (
 	errorSelector  = "/error_selector_length"
 )
 
-// formatName is an internal function to format a gopher line name string
+var (
+	// pageWidth is the maximum set page width of a gophermap document to render to
+	pageWidth int
+
+	// footer holds the formatted footer text (if supplied), and gophermap last-line
+	footer []byte
+)
+
+// formatName formats a gopher line name string
 func formatName(name string) string {
 	if len(name) > pageWidth {
 		return name[:pageWidth-4] + "...\t"
@@ -17,7 +30,7 @@ func formatName(name string) string {
 	return name + "\t"
 }
 
-// formatSelector is an internal function to format a gopher line selector string
+// formatSelector formats a gopher line selector string
 func formatSelector(selector string) string {
 	if len(selector) > maxSelectorLen {
 		return errorSelector + "\t"
@@ -25,27 +38,40 @@ func formatSelector(selector string) string {
 	return selector + "\t"
 }
 
-// formatHostPort is an internal function to format a gopher line host + port
+// formatHostPort formats a gopher line host + port
 func formatHostPort(host, port string) string {
 	return host + "\t" + port
 }
 
-// buildLine is an internal function that builds a gopher line string
+// buildLine builds a gopher line string
 func buildLine(t ItemType, name, selector, host, port string) []byte {
 	return []byte(string(t) + formatName(name) + formatSelector(selector) + formatHostPort(host, port) + "\r\n")
 }
 
-// buildInfoLine is an internal function that builds a gopher info line string
+// buildInfoLine builds a gopher info line string
 func buildInfoLine(line string) []byte {
 	return []byte(string(typeInfo) + formatName(line) + formatHostPort(nullHost, nullPort) + "\r\n")
 }
 
-// buildErrorLine is an internal function that builds a gopher error line string
+// buildErrorLine builds a gopher error line string
 func buildErrorLine(selector string) []byte {
 	return []byte(string(typeError) + selector + "\r\n" + ".\r\n")
 }
 
-// buildFooter is an internal function that formats a raw gopher footer ready to attach to end of gophermaps (including DOS line-end)
+// appendFileListing formats and appends a new file entry as part of a directory listing
+func appendFileListing(b []byte, file os.FileInfo, p *core.Path) []byte {
+	switch {
+	case file.Mode()&os.ModeDir != 0:
+		return append(b, buildLine(typeDirectory, file.Name(), p.Selector(), core.Hostname, core.FwdPort)...)
+	case file.Mode()&os.ModeType == 0:
+		t := getItemType(p.Relative())
+		return append(b, buildLine(t, file.Name(), p.Selector(), core.Hostname, core.FwdPort)...)
+	default:
+		return b
+	}
+}
+
+// buildFooter formats a raw gopher footer ready to attach to end of gophermaps (including DOS line-end)
 func buildFooter(raw string) []byte {
 	ret := make([]byte, 0)
 

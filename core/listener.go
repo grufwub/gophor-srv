@@ -12,11 +12,13 @@ type Listener struct {
 
 // NewListener returns a new Listener or Error
 func NewListener(ip, port string) (*Listener, Error) {
+	// Try resolve provided ip and port details
 	laddr, err := net.ResolveTCPAddr("tcp", ip+":"+port)
 	if err != nil {
 		return nil, WrapError(ListenerResolveErr, err)
 	}
 
+	// Create listener!
 	listener, err := net.ListenTCP("tcp", laddr)
 	if err != nil {
 		return nil, WrapError(ListenerBeginErr, err)

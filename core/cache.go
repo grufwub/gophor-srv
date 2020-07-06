@@ -50,7 +50,7 @@ func (lru *LRUCacheMap) Put(key string, value *File) {
 		lElem = lru.list.Back()
 		element, _ := lElem.Value.(*Element)
 
-		// Delete entry in hashMap with key from Element, and list
+		// Delete entry in hashMap with key from Element, and from list
 		delete(lru.hashMap, element.key)
 		lru.list.Remove(lElem)
 	}
@@ -68,7 +68,7 @@ func (lru *LRUCacheMap) Remove(key string) {
 	lru.list.Remove(lElem)
 }
 
-// Iterate performsn an iteration over all key:value pairs in LRUCacheMap with supplied function
+// Iterate performs an iteration over all key:value pairs in LRUCacheMap with supplied function
 func (lru *LRUCacheMap) Iterate(iterator func(key string, value *File)) {
 	for key := range lru.hashMap {
 		element, _ := lru.hashMap[key].Value.(*Element)

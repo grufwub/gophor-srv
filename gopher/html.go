@@ -1,5 +1,6 @@
 package gopher
 
+// generateHTMLRedirect takes a URL string and generates an HTML redirect page bytes
 func generateHTMLRedirect(url string) []byte {
 	content :=
 		"<html>\n" +

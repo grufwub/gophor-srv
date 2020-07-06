@@ -16,13 +16,14 @@ var (
 	// maxCGIRunTime specifies the maximum time a CGI script can run for
 	maxCGIRunTime time.Duration
 
-	// httpPrefixBufSize
+	// httpPrefixBufSize specifies size of the buffer to use when skipping HTTP headers
 	httpPrefixBufSize int
 
 	// ExecuteCGIScript is a pointer to the currently set CGI execution function
-	ExecuteCGIScript func(client *Client, request Request) Error
+	ExecuteCGIScript func(*Client, *Request) Error
 )
 
+// setupInitialCGIEnv takes a safe PATH, uses other server variables and returns a slice of constant CGI environment variables
 func setupInitialCGIEnv(safePath string) []string {
 	env := make([]string, 0)
 
@@ -35,7 +36,8 @@ func setupInitialCGIEnv(safePath string) []string {
 	return env
 }
 
-func generateCGIEnv(client *Client, request Request) []string {
+// generateCGIEnv takes a Client, and Request object, the global constant slice and generates a full set of CGI environment variables
+func generateCGIEnv(client *Client, request *Request) []string {
 	env := cgiEnv
 
 	env = append(env, "REMOTE_ADDR="+client.IP())
@@ -48,11 +50,13 @@ func generateCGIEnv(client *Client, request Request) []string {
 	return env
 }
 
-func executeCGIScriptNoHTTP(client *Client, request Request) Error {
+// executeCGIScriptNoHTTP executes a CGI script, responding with output to client without stripping HTTP headers
+func executeCGIScriptNoHTTP(client *Client, request *Request) Error {
 	return execute(client.Conn().Writer(), request.Path(), generateCGIEnv(client, request))
 }
 
-func executeCGIScriptStripHTTP(client *Client, request Request) Error {
+// executeCGIScriptStripHTTP executes a CGI script, responding with output to client, stripping HTTP headers and handling status code
+func executeCGIScriptStripHTTP(client *Client, request *Request) Error {
 	// Create new httpStripWriter
 	httpWriter := newhttpStripWriter(client.Conn().Writer())
 
@@ -67,15 +71,16 @@ func executeCGIScriptStripHTTP(client *Client, request Request) Error {
 	return err
 }
 
-func execute(writer io.Writer, path *Path, env []string) Error {
+// execute executes something at Path, with supplied environment and ouputing to writer
+func execute(writer io.Writer, p *Path, env []string) Error {
 	// Create cmd object
-	cmd := exec.Command(path.Absolute())
+	cmd := exec.Command(p.Absolute())
 
 	// Set new process group id
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	// Setup cmd environment
-	cmd.Env, cmd.Dir = env, path.Root()
+	cmd.Env, cmd.Dir = env, p.Root()
 
 	// Setup cmd out writer
 	cmd.Stdout = writer
@@ -129,7 +134,7 @@ func execute(writer io.Writer, path *Path, env []string) Error {
 
 	// Non-zero exit code? Return error
 	if exitCode != 0 {
-		SystemLog.Error("Exit executing: %s [%d]", path.Absolute(), exitCode)
+		SystemLog.Error("Exit executing: %s [%d]", p.Absolute(), exitCode)
 		return NewError(CGIExitCodeErr)
 	}
 
@@ -137,26 +142,21 @@ func execute(writer io.Writer, path *Path, env []string) Error {
 	return nil
 }
 
+// httpStripWriter wraps a writer, reading HTTP headers and parsing status code, before deciding to continue writing
 type httpStripWriter struct {
-	/* Wrapper to io.Writer that reads a predetermined amount into a buffer
-	 * then parses the buffer for valid HTTP headers and status code, deciding
-	 * whether to strip these headers or returning with an HTTP status code.
-	 */
 	writer     io.Writer
 	skipBuffer []byte
 	skipIndex  int
 	err        Error
 
-	/* We set underlying write function with a variable, so that each call
-	 * to .Write() doesn't have to perform a check every time whether we need
-	 * to keep checking for headers to skip.
-	 */
-	WriteFunc func(*httpStripWriter, []byte) (int, error)
+	// writeFunc is a pointer to the current underlying write function
+	writeFunc func(*httpStripWriter, []byte) (int, error)
 }
 
-func newhttpStripWriter(writer io.Writer) *httpStripWriter {
+// newhttpStripWriter returns a new httpStripWriter wrapping supplied writer
+func newhttpStripWriter(w io.Writer) *httpStripWriter {
 	return &httpStripWriter{
-		writer,
+		w,
 		make([]byte, httpPrefixBufSize),
 		0,
 		nil,
@@ -166,13 +166,13 @@ func newhttpStripWriter(writer io.Writer) *httpStripWriter {
 
 // addToSkipBuffer adds supplied bytes to the skip buffer, returning number added
 func (w *httpStripWriter) addToSkipBuffer(data []byte) int {
-	/* Figure out how much data we need to add */
+	// Figure out amount to add
 	toAdd := len(w.skipBuffer) - w.skipIndex
 	if len(data) < toAdd {
 		toAdd = len(data)
 	}
 
-	/* Add the data to the skip buffer! */
+	// Add data to skip buffer, return added
 	copy(w.skipBuffer[w.skipIndex:], data[:toAdd])
 	w.skipIndex += toAdd
 	return toAdd
@@ -257,80 +257,77 @@ func (w *httpStripWriter) writeSkipBuffer() (bool, error) {
 }
 
 func (w *httpStripWriter) FinishUp() Error {
-	/* If SkipBuffer still has contents, in case of data written being less
-	 * than w.Size() --> check this data for HTTP headers to strip, parse
-	 * any status codes and write this content with underlying writer if
-	 * necessary.
-	 */
+	// If skipIndex not zero, try write (or at least parse and see if we need
+	// to write) remaining skipBuffer. (e.g. if CGI output very short)
 	if w.skipIndex > 0 {
 		w.writeSkipBuffer()
 	}
 
-	/* Return HttpStripWriter error code if set */
+	// Return error if set
 	return w.err
 }
 
-func (w *httpStripWriter) Write(data []byte) (int, error) {
-	/* Write using whatever write function is currently set */
-	return w.WriteFunc(w, data)
+func (w *httpStripWriter) Write(b []byte) (int, error) {
+	// Write using currently set write function
+	return w.writeFunc(w, b)
 }
 
-func writeRegular(w *httpStripWriter, data []byte) (int, error) {
-	/* Regular write function */
-	return w.writer.Write(data)
+// writeRegular performs task of regular write function, it is a direct wrapper
+func writeRegular(w *httpStripWriter, b []byte) (int, error) {
+	return w.writer.Write(b)
 }
 
-func writeCheckForHeaders(w *httpStripWriter, data []byte) (int, error) {
-	split := bytes.Split(data, []byte("\r\n\r\n"))
+// writeCheckForHeaders reads input data, checking for headers to add to skip buffer and parse before continuing
+func writeCheckForHeaders(w *httpStripWriter, b []byte) (int, error) {
+	split := bytes.Split(b, []byte("\r\n\r\n"))
 	if len(split) == 1 {
-		/* Try add these to skip buffer */
-		added := w.addToSkipBuffer(data)
+		// Headers found, try to add data to skip buffer
+		added := w.addToSkipBuffer(b)
 
-		if added < len(data) {
+		if added < len(b) {
 			defer func() {
-				/* Having written skipbuffer after this if clause, set write to regular */
-				w.WriteFunc = writeRegular
+				// Having written skip buffer, defer resetting write function
+				w.writeFunc = writeRegular
 			}()
 
 			doContinue, err := w.writeSkipBuffer()
 			if !doContinue {
-				return len(data), io.EOF
+				return len(b), io.EOF
 			} else if err != nil {
 				return added, err
 			}
 
-			/* Write remaining data not added to skip buffer */
-			count, err := w.writer.Write(data[added:])
+			// Write remaining data not added to skip buffer
+			count, err := w.writer.Write(b[added:])
 			if err != nil {
 				return added + count, err
 			}
 		}
 
-		return len(data), nil
-	} else {
-		defer func() {
-			/* No use for skip buffer after this clause, set write to regular */
-			w.WriteFunc = writeRegular
-			w.skipIndex = 0
-		}()
-
-		/* Try add what we can to skip buffer */
-		added := w.addToSkipBuffer(append(split[0], []byte("\r\n\r\n")...))
-
-		/* Write skip buffer data if necessary, check if we should continue */
-		doContinue, err := w.writeSkipBuffer()
-		if !doContinue {
-			return len(data), io.EOF
-		} else if err != nil {
-			return added, err
-		}
-
-		/* Write remaining data not added to skip buffer */
-		count, err := w.writer.Write(data[added:])
-		if err != nil {
-			return added + count, err
-		}
-
-		return len(data), nil
+		return len(b), nil
 	}
+
+	defer func() {
+		// No use for skip buffer after belo, set write to regular
+		w.writeFunc = writeRegular
+	}()
+
+	// Try add what we can to skip buffer
+	added := w.addToSkipBuffer(append(split[0], []byte("\r\n\r\n")...))
+
+	// Write skip buffer data if necessary, check if we should continue
+	doContinue, err := w.writeSkipBuffer()
+	if !doContinue {
+		return len(b), io.EOF
+	} else if err != nil {
+		return added, err
+	}
+
+	// Write remaining data not added to skip buffer, to writer
+	count, err := w.writer.Write(b[added:])
+	if err != nil {
+		return added + count, err
+	}
+
+	return len(b), nil
 }

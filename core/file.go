@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// FileContents provides an interface for cacheing, rendering and getting cache'd contents of a file
+// FileContents provides an interface for caching, rendering and getting cached contents of a file
 type FileContents interface {
 	WriteToClient(*Client, *Path) Error
 	Load(*os.File, *Path) Error

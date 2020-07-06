@@ -21,6 +21,9 @@ var (
 
 	// FileSystem is the global FileSystem object
 	FileSystem *FileSystemObject
+
+	// userDir is the set subdir name to be looked for under user's home folders
+	userDir string
 )
 
 // FileSystemObject holds onto an LRUCacheMap and manages access to it, handless freshness checking and multi-threading
@@ -182,14 +185,17 @@ func (fs *FileSystemObject) ScanDirectory(fd *os.File, iterator func(os.FileInfo
 }
 
 // HandleClient .
-func (fs *FileSystemObject) HandleClient(client *Client, request Request, newFileContents func(*Path) FileContents, handleDirectory func(*FileSystemObject, *Client, *os.File, *Path) Error) Error {
+func (fs *FileSystemObject) HandleClient(client *Client, request *Request, newFileContents func(*Path) FileContents, handleDirectory func(*FileSystemObject, *Client, *os.File, *Path) Error) Error {
 	// If restricted, return error
 	if IsRestrictedPath(request.Path()) {
 		return NewError(RestrictedPathErr)
 	}
 
-	// Try remap request
-	request = RemapRequest(request)
+	// Try remap request, log if so
+	ok := RemapRequest(request)
+	if ok {
+		client.LogInfo("Remapped request: %s %s", request.Path().Selector(), request.Params())
+	}
 
 	// First check for file on disk
 	fd, err := fs.OpenFile(request.Path())
@@ -210,11 +216,11 @@ func (fs *FileSystemObject) HandleClient(client *Client, request Request, newFil
 	defer fd.Close()
 
 	// Get stat
-	stat, statErr := fd.Stat()
-	if err != nil {
+	stat, goErr := fd.Stat()
+	if goErr != nil {
 		// Unlock, return error
 		fs.RUnlock()
-		return WrapError(FileStatErr, statErr)
+		return WrapError(FileStatErr, goErr)
 	}
 
 	switch {
@@ -236,7 +242,7 @@ func (fs *FileSystemObject) HandleClient(client *Client, request Request, newFil
 		}
 
 		// Else just fetch
-		return fs.fetchFile(client, fd, request.Path(), newFileContents)
+		return fs.FetchFile(client, fd, stat, request.Path(), newFileContents)
 
 	// Unsupported type
 	default:
@@ -244,22 +250,27 @@ func (fs *FileSystemObject) HandleClient(client *Client, request Request, newFil
 	}
 }
 
-func (fs *FileSystemObject) fetchFile(client *Client, fd *os.File, path *Path, newFileContents func(*Path) FileContents) Error {
+func (fs *FileSystemObject) FetchFile(client *Client, fd *os.File, stat os.FileInfo, p *Path, newFileContents func(*Path) FileContents) Error {
+	// If file too big, write direct to client
+	if stat.Size() > fileSizeMax {
+		return client.Conn().WriteFrom(fd)
+	}
+
 	// Get cache read lock, defer unlock
 	fs.RLock()
 	defer fs.RUnlock()
 
 	// Now check for file in cache
-	file, ok := fs.cache.Get(path.Absolute())
+	file, ok := fs.cache.Get(p.Absolute())
 	if !ok {
 		// Create new file contents with supplied function
-		contents := newFileContents(path)
+		contents := newFileContents(p)
 
 		// Wrap contents in file
 		file = NewFile(contents)
 
 		// Cache the file contents
-		err := file.CacheContents(fd, path)
+		err := file.CacheContents(fd, p)
 		if err != nil {
 			// Unlock, return error
 			return err
@@ -270,7 +281,7 @@ func (fs *FileSystemObject) fetchFile(client *Client, fd *os.File, path *Path, n
 		fs.Lock()
 
 		// Put file in cache
-		fs.cache.Put(path.Absolute(), file)
+		fs.cache.Put(p.Absolute(), file)
 
 		// Switch back to cache read lock, get file read lock
 		fs.Unlock()
@@ -287,7 +298,7 @@ func (fs *FileSystemObject) fetchFile(client *Client, fd *os.File, path *Path, n
 			file.Lock()
 
 			// Refresh file contents
-			err := file.CacheContents(fd, path)
+			err := file.CacheContents(fd, p)
 			if err != nil {
 				// Unlock file, return error
 				file.Unlock()
@@ -302,5 +313,5 @@ func (fs *FileSystemObject) fetchFile(client *Client, fd *os.File, path *Path, n
 
 	// Defer file unlock, write to client
 	defer file.RUnlock()
-	return file.WriteToClient(client, path)
+	return file.WriteToClient(client, p)
 }

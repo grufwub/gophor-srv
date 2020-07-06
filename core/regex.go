@@ -19,28 +19,30 @@ var (
 	// IsRestrictedPath is the global function to check against restricted paths
 	IsRestrictedPath func(*Path) bool
 
-	// RemappedPaths is the global slice of remapped paths
-	remappedPaths []*PathRemap
+	// requestRemaps is the global slice of remapped paths
+	requestRemaps []*RequestRemap
 
 	// RemapRequest is the global function to remap a request
-	RemapRequest func(Request) Request
+	RemapRequest func(*Request) bool
 )
 
 // PathMapSeparatorStr specifies the separator string to recognise in path mappings
 const PathMapSeparatorStr = " -> "
 
-// PathRemap is a structure to hold a remap regex to check against, and a template to apply this transformation onto
-type PathRemap struct {
+// RequestRemap is a structure to hold a remap regex to check against, and a template to apply this transformation onto
+type RequestRemap struct {
 	Regex    *regexp.Regexp
 	Template string
 }
 
+// compileCGIRegex takes a supplied string and returns compiled regular expression
 func compileCGIRegex(cgiDir string) *regexp.Regexp {
 	if path.IsAbs(cgiDir) {
 		if !strings.HasPrefix(cgiDir, Root) {
 			SystemLog.Fatal("CGI directory must not be outside server root!")
 		}
-		cgiDir = strings.TrimPrefix(cgiDir, Root)
+	} else {
+		cgiDir = path.Join(Root, cgiDir)
 	}
 	SystemLog.Info("CGI directory: %s", cgiDir)
 	return regexp.MustCompile("(?m)" + cgiDir + "(|/.*)$")
@@ -71,9 +73,9 @@ func compileRestrictedPathsRegex(restrictions string) []*regexp.Regexp {
 	return regexes
 }
 
-// compilePathRemapRegex turns a string of remapped paths into a slice of compiled PathRemap structures
-func compilePathRemapRegex(remaps string) []*PathRemap {
-	pathRemaps := make([]*PathRemap, 0)
+// compil RequestRemapRegex turns a string of remapped paths into a slice of compiled RequestRemap structures
+func compileRequestRemapRegex(remaps string) []*RequestRemap {
+	requestRemaps := make([]*RequestRemap, 0)
 
 	// Split remaps string by new lines
 	for _, expr := range strings.Split(remaps, "\n") {
@@ -94,22 +96,25 @@ func compilePathRemapRegex(remaps string) []*PathRemap {
 			SystemLog.Fatal("Failed compiling path remap regex: %s", expr)
 		}
 
-		// Append PathRemap and log
-		pathRemaps = append(pathRemaps, &PathRemap{regex, strings.TrimPrefix(split[1], "/")})
+		// Append RequestRemap and log
+		requestRemaps = append(requestRemaps, &RequestRemap{regex, strings.TrimPrefix(split[1], "/")})
 		SystemLog.Info("Compiled path remap regex: %s", expr)
 	}
 
-	return pathRemaps
+	return requestRemaps
 }
 
+// withinCGIDirEnabled returns whether a Path's absolute value matches within the CGI dir
 func withinCGIDirEnabled(p *Path) bool {
-	return cgiDirRegex.MatchString(p.Relative())
+	return cgiDirRegex.MatchString(p.Absolute())
 }
 
+// withinCGIDirDisabled always returns false, CGI is disabled
 func withinCGIDirDisabled(p *Path) bool {
 	return false
 }
 
+// isRestrictedPathEnabled returns whether a Path's relative value is restricted
 func isRestrictedPathEnabled(p *Path) bool {
 	for _, regex := range restrictedPaths {
 		if regex.MatchString(p.Relative()) {
@@ -119,12 +124,14 @@ func isRestrictedPathEnabled(p *Path) bool {
 	return false
 }
 
-func isRestrictedPathDisabled(path *Path) bool {
+// isRestrictedPathDisabled always returns false, there are no restricted paths
+func isRestrictedPathDisabled(p *Path) bool {
 	return false
 }
 
-func remapRequestEnabled(request Request) Request {
-	for _, remap := range remappedPaths {
+// remapRequestEnabled tries to remap a request, returning bool as to success
+func remapRequestEnabled(request *Request) bool {
+	for _, remap := range requestRemaps {
 		// No match, gotta keep looking
 		if !remap.Regex.MatchString(request.Path().Selector()) {
 			continue
@@ -137,14 +144,16 @@ func remapRequestEnabled(request Request) Request {
 		}
 
 		// Split to new path and paramters again
-		path, params := SplitPathAndParams(string(raw))
+		path, params := SplitBy(string(raw), "?")
 
-		// Return remapped request
-		return request.Remap(path, params)
+		// Remap request, log, return
+		request.Remap(path, params)
+		return true
 	}
-	return request
+	return false
 }
 
-func remapRequestDisabled(request Request) Request {
-	return request
+// remapRequestDisabled always returns false, there are no remapped requests
+func remapRequestDisabled(request *Request) bool {
+	return false
 }
