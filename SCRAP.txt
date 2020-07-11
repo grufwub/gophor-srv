@@ -1,13 +1,4 @@
 TODO:
-    - add sys log support to client (so relevant sys and acc logs can be matched)
-    - improve core flag string constants
     - add TLS support (only TLS??)
     - write gemini implementation
     - write tests
-    - group together functions where possible
-    - move FileContents (default implementation) to core (?)
-    - log formatting options (?)
-    - clean up much of gopher implementation
-    - improve 'cgi-bin' check in directory listings
-    - move all hard-coded strings to string_constants.go
-    - continue ensuring only used variables are exported
