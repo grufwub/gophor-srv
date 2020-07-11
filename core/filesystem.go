@@ -193,7 +193,23 @@ func (fs *FileSystemObject) ScanDirectory(fd *os.File, p *Path, iterator func(os
 	return nil
 }
 
-// HandleClient .
+// AddGeneratedFile adds a generated file content byte slice to the file cache, with supplied path as the key
+func (fs *FileSystemObject) AddGeneratedFile(p *Path, b []byte) {
+	// Get write lock, defer unlock
+	fs.Lock()
+	defer fs.Unlock()
+
+	// Create new generatedFileContents
+	contents := &generatedFileContents{b}
+
+	// Wrap contents in File
+	file := newFile(contents)
+
+	// Add to cache!
+	fs.cache.Put(p.Absolute(), file)
+}
+
+// HandleClient handles a Client, attempting to serve their request from the filesystem whether a regular file, gophermap, dir listing or CGI script
 func (fs *FileSystemObject) HandleClient(client *Client, request *Request, newFileContents func(*Path) FileContents, handleDirectory func(*FileSystemObject, *Client, *os.File, *Path) Error) Error {
 	// If restricted, return error
 	if IsRestrictedPath(request.Path()) {

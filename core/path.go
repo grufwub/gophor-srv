@@ -13,13 +13,13 @@ type Path struct {
 }
 
 // NewPath returns a new Path structure based on supplied root and relative path
-func newPath(root, rel string) *Path {
+func NewPath(root, rel string) *Path {
 	return &Path{root, rel, formatSelector(rel)}
 }
 
-// NewSanitizedPath returns a new sanitized Path structure based on root and relative path
+// newSanitizedPath returns a new sanitized Path structure based on root and relative path
 func newSanitizedPath(root, rel string) *Path {
-	return newPath(root, sanitizeRawPath(root, rel))
+	return NewPath(root, sanitizeRawPath(root, rel))
 }
 
 // Remap remaps a Path to a new relative path, keeping previous selector

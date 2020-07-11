@@ -104,7 +104,7 @@ func handleError(client *core.Client, err core.Error) {
 // newFileContents returns a new FileContents object
 func newFileContents(p *core.Path) core.FileContents {
 	if isGophermap(p) {
-		return &GophermapContents{}
+		return &gophermapContents{}
 	}
 	return &core.RegularFileContents{}
 }

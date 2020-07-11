@@ -102,13 +102,13 @@ func execute(writer io.Writer, p *Path, env []string) Error {
 		// Get process group id
 		pgid, err := syscall.Getpgid(cmd.Process.Pid)
 		if err != nil {
-			SystemLog.Fatal("Process unfinished, PGID not found!")
+			SystemLog.Fatal(pgidNotFoundErrStr)
 		}
 
 		// Kill process group!
 		err = syscall.Kill(-pgid, syscall.SIGTERM)
 		if err != nil {
-			SystemLog.Fatal("Error stopping process group %d: %s", pgid, err.Error())
+			SystemLog.Fatal(pgidStopErrStr, pgid, err.Error())
 		}
 	}()
 
@@ -132,7 +132,7 @@ func execute(writer io.Writer, p *Path, env []string) Error {
 
 	// Non-zero exit code? Return error
 	if exitCode != 0 {
-		SystemLog.Error("Exit executing: %s [%d]", p.Absolute(), exitCode)
+		SystemLog.Error(cgiExecuteErrStr, p.Absolute(), exitCode)
 		return NewError(CGIExitCodeErr)
 	}
 

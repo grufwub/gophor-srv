@@ -2,6 +2,7 @@ package core
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"path"
@@ -9,6 +10,11 @@ import (
 	"strings"
 	"syscall"
 	"time"
+)
+
+const (
+	// Version holds the current version string
+	Version = "v0.2-alpha"
 )
 
 var (
@@ -45,9 +51,16 @@ func ParseFlagsAndSetup(errorMessageFunc func(ErrorCode) string) {
 	httpCompatCGI := flag.Bool(httpCompatCGIFlagStr, false, httpCompatCGIDescStr)
 	httpPrefixBuf := flag.Uint(httpPrefixBufFlagStr, 1024, httpPrefixBufDescStr)
 	flag.StringVar(&userDir, userDirFlagStr, "", userDirDescStr)
+	printVersion := flag.Bool(versionFlagStr, false, versionDescStr)
 
 	// Parse flags! (including any set by outer calling function)
 	flag.Parse()
+
+	// If version print requested, do so!
+	if *printVersion {
+		fmt.Println("Gophor " + Version)
+		os.Exit(0)
+	}
 
 	// Setup loggers
 	SystemLog = setupLogger(*sysLog)
@@ -64,6 +77,12 @@ func ParseFlagsAndSetup(errorMessageFunc func(ErrorCode) string) {
 		}
 		Hostname = BindAddr
 	}
+
+	// Change to server directory
+	if osErr := os.Chdir(Root); osErr != nil {
+		SystemLog.Fatal(chDirErrStr, osErr)
+	}
+	SystemLog.Info(chDirStr, Root)
 
 	// Set port info
 	if *fwdPort == 0 {

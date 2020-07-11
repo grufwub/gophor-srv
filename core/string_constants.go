@@ -73,11 +73,17 @@ const (
 
 	userDirFlagStr = "user-dir"
 	userDirDescStr = "User's personal server directory"
+
+	versionFlagStr = "version"
+	versionDescStr = "Print version string"
 )
 
 // Log string constants
 const (
 	hostnameBindAddrEmptyStr = "At least one of hostname or bind-addr must be non-empty!"
+
+	chDirStr    = "Entered server dir: %s"
+	chDirErrStr = "Error entering server directory: %s"
 
 	listenerBeginFailStr = "Failed to start listener on %s:%s (%s)"
 	listeningOnStr       = "Listening on: %s:%s (%s:%s)"
@@ -101,6 +107,7 @@ const (
 	cgiDirOutsideRootStr    = "CGI directory must not be outside server root!"
 	cgiDirStr               = "CGI directory: %s"
 	cgiHTTPCompatEnabledStr = "CGI HTTP compatibility enabled, prefix buffer: %d"
+	cgiExecuteErrStr        = "Exit executing: %s [%d]"
 
 	userDirEnabledStr         = "User directory support enabled"
 	userDirDisabledStr        = "User directory support disabled"
@@ -110,6 +117,9 @@ const (
 	signalReceivedStr = "Signal received: %v. Shutting down..."
 
 	logOutputErrStr = "Error opening log output %s: %s"
+
+	pgidNotFoundErrStr = "Process unfinished, PGID not found!"
+	pgidStopErrStr     = "Error stopping process group %d: %s"
 
 	connWriteErrStr        = "Conn write error"
 	connReadErrStr         = "Conn read error"

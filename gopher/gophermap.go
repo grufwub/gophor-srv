@@ -11,14 +11,14 @@ var (
 )
 
 // GophermapSection is an interface that specifies individually renderable (and writeable) sections of a gophermap
-type GophermapSection interface {
+type gophermapSection interface {
 	RenderAndWrite(*core.Client) core.Error
 }
 
 // readGophermap reads a FD and Path as gophermap sections
-func readGophermap(fd *os.File, p *core.Path) ([]GophermapSection, core.Error) {
+func readGophermap(fd *os.File, p *core.Path) ([]gophermapSection, core.Error) {
 	// Create return slice
-	sections := make([]GophermapSection, 0)
+	sections := make([]gophermapSection, 0)
 
 	// Create hidden files map now in case later requested
 	hidden := map[string]bool{

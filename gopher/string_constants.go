@@ -23,6 +23,15 @@ const (
 
 	subgopherSizeMaxFlagStr = "subgopher-size-max"
 	subgopherSizeMaxDescStr = "Subgophermap size max (megabytes)"
+
+	adminFlagStr = "admin"
+	adminDescStr = "Generated policy file admin email"
+
+	descFlagStr = "description"
+	descDescStr = "Generated policy file server description"
+
+	geoFlagStr = "geolocation"
+	geoDescStr = "Generated policy file server geolocation"
 )
 
 // Log string constants
