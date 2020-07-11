@@ -27,7 +27,7 @@ var (
 )
 
 // PathMapSeparatorStr specifies the separator string to recognise in path mappings
-const PathMapSeparatorStr = " -> "
+const requestRemapSeparatorStr = " -> "
 
 // RequestRemap is a structure to hold a remap regex to check against, and a template to apply this transformation onto
 type RequestRemap struct {
@@ -39,12 +39,12 @@ type RequestRemap struct {
 func compileCGIRegex(cgiDir string) *regexp.Regexp {
 	if path.IsAbs(cgiDir) {
 		if !strings.HasPrefix(cgiDir, Root) {
-			SystemLog.Fatal("CGI directory must not be outside server root!")
+			SystemLog.Fatal(cgiDirOutsideRootStr)
 		}
 	} else {
 		cgiDir = path.Join(Root, cgiDir)
 	}
-	SystemLog.Info("CGI directory: %s", cgiDir)
+	SystemLog.Info(cgiDirStr, cgiDir)
 	return regexp.MustCompile("(?m)" + cgiDir + "(|/.*)$")
 }
 
@@ -62,12 +62,12 @@ func compileRestrictedPathsRegex(restrictions string) []*regexp.Regexp {
 		// Compile the regular expression
 		regex, err := regexp.Compile("(?m)" + expr + "$")
 		if err != nil {
-			SystemLog.Fatal("Failed compiling restricted path regex: %s", expr)
+			SystemLog.Fatal(pathRestrictRegexCompileFailStr, expr)
 		}
 
 		// Append compiled regex and log
 		regexes = append(regexes, regex)
-		SystemLog.Info("Compiled restricted path regex: %s", expr)
+		SystemLog.Info(pathRestrictRegexCompiledStr, expr)
 	}
 
 	return regexes
@@ -85,20 +85,20 @@ func compileRequestRemapRegex(remaps string) []*RequestRemap {
 		}
 
 		// Split into alias and remap
-		split := strings.Split(expr, PathMapSeparatorStr)
+		split := strings.Split(expr, requestRemapSeparatorStr)
 		if len(split) != 2 {
-			SystemLog.Fatal("Invalid path remap regex: %s", expr)
+			SystemLog.Fatal(requestRemapRegexInvalidStr, expr)
 		}
 
 		// Compile the regular expression
 		regex, err := regexp.Compile("(?m)" + strings.TrimPrefix(split[0], "/") + "$")
 		if err != nil {
-			SystemLog.Fatal("Failed compiling path remap regex: %s", expr)
+			SystemLog.Fatal(requestRemapRegexCompileFailStr, expr)
 		}
 
 		// Append RequestRemap and log
 		requestRemaps = append(requestRemaps, &RequestRemap{regex, strings.TrimPrefix(split[1], "/")})
-		SystemLog.Info("Compiled path remap regex: %s", expr)
+		SystemLog.Info(requestRemapRegexCompiledStr, expr)
 	}
 
 	return requestRemaps
@@ -144,7 +144,7 @@ func remapRequestEnabled(request *Request) bool {
 		}
 
 		// Split to new path and paramters again
-		path, params := SplitBy(string(raw), "?")
+		path, params := splitBy(string(raw), "?")
 
 		// Remap request, log, return
 		request.Remap(path, params)

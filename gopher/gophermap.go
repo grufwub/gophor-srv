@@ -164,15 +164,7 @@ func (s *DirectorySection) RenderAndWrite(client *core.Client) core.Error {
 	dirContents := make([]byte, 0)
 
 	// Scan directory and build lines
-	err = core.FileSystem.ScanDirectory(fd, func(file os.FileInfo) {
-		p := s.path.JoinPath(file.Name())
-
-		// Skip hidden or restricted files
-		_, ok := s.hidden[p.Relative()]
-		if ok || core.IsRestrictedPath(p) || core.WithinCGIDir(p) {
-			return
-		}
-
+	err = core.FileSystem.ScanDirectory(fd, s.path, func(file os.FileInfo, p *core.Path) {
 		// Append new formatted file listing (if correct type)
 		dirContents = appendFileListing(dirContents, file, p)
 	})

@@ -7,9 +7,9 @@ import (
 
 // setup parses gopher specific flags, and all core flags, preparing server for .Run()
 func setup() {
-	pWidth := flag.Uint(PageWidthFlagStr, 80, PageWidthDescStr)
-	footerText := flag.String(FooterTextFlagStr, "Gophor, a gopher server in Go!", FooterTextDescStr)
-	subgopherSizeMax := flag.Float64(SubgopherSizeMaxFlagStr, 1.0, SubgopherSizeMaxDescStr)
+	pWidth := flag.Uint(pageWidthFlagStr, 80, pageWidthDescStr)
+	footerText := flag.String(footerTextFlagStr, "Gophor, a gopher server in Go!", footerTextDescStr)
+	subgopherSizeMax := flag.Float64(subgopherSizeMaxFlagStr, 1.0, subgopherSizeMaxDescStr)
 	core.ParseFlagsAndSetup(generateErrorMessage)
 
 	subgophermapSizeMax = int64(1048576.0 * *subgopherSizeMax) // convert float to megabytes

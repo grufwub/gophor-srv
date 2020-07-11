@@ -3,15 +3,15 @@ package core
 import "net"
 
 // serverListener holds the global Listener object
-var serverListener *Listener
+var serverListener *listener
 
-// Listener wraps a net.TCPListener to return our own clients on each Accept()
-type Listener struct {
-	listener *net.TCPListener
+// listener wraps a net.TCPListener to return our own clients on each Accept()
+type listener struct {
+	l *net.TCPListener
 }
 
 // NewListener returns a new Listener or Error
-func NewListener(ip, port string) (*Listener, Error) {
+func newListener(ip, port string) (*listener, Error) {
 	// Try resolve provided ip and port details
 	laddr, err := net.ResolveTCPAddr("tcp", ip+":"+port)
 	if err != nil {
@@ -19,17 +19,17 @@ func NewListener(ip, port string) (*Listener, Error) {
 	}
 
 	// Create listener!
-	listener, err := net.ListenTCP("tcp", laddr)
+	l, err := net.ListenTCP("tcp", laddr)
 	if err != nil {
 		return nil, WrapError(ListenerBeginErr, err)
 	}
 
-	return &Listener{listener}, nil
+	return &listener{l}, nil
 }
 
 // Accept accepts a new connection and returns a client, or error
-func (l *Listener) Accept() (*Client, Error) {
-	conn, err := l.listener.AcceptTCP()
+func (l *listener) Accept() (*Client, Error) {
+	conn, err := l.l.AcceptTCP()
 	if err != nil {
 		return nil, WrapError(ListenerAcceptErr, err)
 	}

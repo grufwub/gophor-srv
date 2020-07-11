@@ -21,30 +21,30 @@ func ParseFlagsAndSetup(errorMessageFunc func(ErrorCode) string) {
 	// Setup numerous temporary flag variables, and store the rest
 	// directly in their final operating location. Strings are stored
 	// in `string_constants.go` to allow for later localization
-	sysLog := flag.String(SysLogFlagStr, "stdout", SysLogDescStr)
-	accLog := flag.String(AccLogFlagStr, "stdout", AccLogDescStr)
-	flag.StringVar(&Root, RootFlagStr, "/var/gopher", RootDescStr)
-	flag.StringVar(&BindAddr, BindAddrFlagStr, "", BindAddrDescStr)
-	flag.StringVar(&Hostname, HostnameFlagStr, "localhost", HostnameDescStr)
-	port := flag.Uint(PortFlagStr, 70, PortDescStr)
-	fwdPort := flag.Uint(FwdPortFlagStr, 0, FwdPortDescStr)
-	flag.DurationVar(&connReadDeadline, ReadDeadlineFlagStr, time.Duration(time.Second*3), ReadDeadlineDescStr)
-	flag.DurationVar(&connWriteDeadline, WriteDeadlineFlagStr, time.Duration(time.Second*5), WriteDeadlineDescStr)
-	cReadBuf := flag.Uint(ConnReadBufFlagStr, 1024, ConnReadBufDescStr)
-	cWriteBuf := flag.Uint(ConnWriteBufFlagStr, 1024, ConnWriteBufDescStr)
-	cReadMax := flag.Uint(ConnReadMaxFlagStr, 4096, ConnReadMaxDescStr)
-	fReadBuf := flag.Uint(FileReadBufFlagStr, 1024, FileReadBufDescStr)
-	flag.DurationVar(&monitorSleepTime, MonitorSleepTimeFlagStr, time.Duration(time.Second*1), MonitorSleepTimeDescStr)
-	cacheMax := flag.Float64(CacheFileMaxFlagStr, 1.0, CacheFileMaxDescStr)
-	cacheSize := flag.Uint(CacheSizeFlagStr, 100, CacheSizeDescStr)
-	restrictedPathsList := flag.String(RestrictPathsFlagStr, "", RestrictPathsDescStr)
-	remapRequestsList := flag.String(RemapRequestsFlagStr, "", RemapRequestsDescStr)
-	cgiDir := flag.String(CGIDirFlagStr, "", CGIDirDescStr)
-	flag.DurationVar(&maxCGIRunTime, MaxCGITimeFlagStr, time.Duration(time.Second*3), MaxCGITimeDescStr)
-	safePath := flag.String(SafePathFlagStr, "/bin:/usr/bin", SafePathDescStr)
-	httpCompatCGI := flag.Bool(HTTPCompatCGIFlagStr, false, HTTPCompatCGIDescStr)
-	httpPrefixBuf := flag.Uint(HTTPPrefixBufFlagStr, 1024, HTTPPrefixBufDescStr)
-	flag.StringVar(&userDir, UserDirFlagStr, "", UserDirDescStr)
+	sysLog := flag.String(sysLogFlagStr, "stdout", sysLogDescStr)
+	accLog := flag.String(accLogFlagStr, "stdout", accLogDescStr)
+	flag.StringVar(&Root, rootFlagStr, "/var/gopher", rootDescStr)
+	flag.StringVar(&BindAddr, bindAddrFlagStr, "", bindAddrDescStr)
+	flag.StringVar(&Hostname, hostnameFlagStr, "localhost", hostnameDescStr)
+	port := flag.Uint(portFlagStr, 70, portDescStr)
+	fwdPort := flag.Uint(fwdPortFlagStr, 0, fwdPortDescStr)
+	flag.DurationVar(&connReadDeadline, readDeadlineFlagStr, time.Duration(time.Second*3), readDeadlineDescStr)
+	flag.DurationVar(&connWriteDeadline, writeDeadlineFlagStr, time.Duration(time.Second*5), writeDeadlineDescStr)
+	cReadBuf := flag.Uint(connReadBufFlagStr, 1024, connReadBufDescStr)
+	cWriteBuf := flag.Uint(connWriteBufFlagStr, 1024, connWriteBufDescStr)
+	cReadMax := flag.Uint(connReadMaxFlagStr, 4096, connReadMaxDescStr)
+	fReadBuf := flag.Uint(fileReadBufFlagStr, 1024, fileReadBufDescStr)
+	flag.DurationVar(&monitorSleepTime, monitorSleepTimeFlagStr, time.Duration(time.Second*1), monitorSleepTimeDescStr)
+	cacheMax := flag.Float64(cacheFileMaxFlagStr, 1.0, cacheFileMaxDescStr)
+	cacheSize := flag.Uint(cacheSizeFlagStr, 100, cacheSizeDescStr)
+	restrictedPathsList := flag.String(restrictPathsFlagStr, "", restrictPathsDescStr)
+	remapRequestsList := flag.String(remapRequestsFlagStr, "", remapRequestsDescStr)
+	cgiDir := flag.String(cgiDirFlagStr, "", cgiDirDescStr)
+	flag.DurationVar(&maxCGIRunTime, maxCGITimeFlagStr, time.Duration(time.Second*3), maxCGITimeDescStr)
+	safePath := flag.String(safePathFlagStr, "/bin:/usr/bin", safePathDescStr)
+	httpCompatCGI := flag.Bool(httpCompatCGIFlagStr, false, httpCompatCGIDescStr)
+	httpPrefixBuf := flag.Uint(httpPrefixBufFlagStr, 1024, httpPrefixBufDescStr)
+	flag.StringVar(&userDir, userDirFlagStr, "", userDirDescStr)
 
 	// Parse flags! (including any set by outer calling function)
 	flag.Parse()
@@ -60,7 +60,7 @@ func ParseFlagsAndSetup(errorMessageFunc func(ErrorCode) string) {
 	// Check valid values for BindAddr and Hostname
 	if Hostname == "" {
 		if BindAddr == "" {
-			SystemLog.Fatal("At least one of hostname or bind-addr must be non-empty!")
+			SystemLog.Fatal(hostnameBindAddrEmptyStr)
 		}
 		Hostname = BindAddr
 	}
@@ -74,9 +74,9 @@ func ParseFlagsAndSetup(errorMessageFunc func(ErrorCode) string) {
 
 	// Setup listener
 	var err Error
-	serverListener, err = NewListener(BindAddr, Port)
+	serverListener, err = newListener(BindAddr, Port)
 	if err != nil {
-		SystemLog.Fatal("Failed to start listener on %s:%s (%s)", BindAddr, Port, err.Error())
+		SystemLog.Fatal(listenerBeginFailStr, BindAddr, Port, err.Error())
 	}
 
 	// Host buffer sizes
@@ -87,41 +87,41 @@ func ParseFlagsAndSetup(errorMessageFunc func(ErrorCode) string) {
 
 	// FileSystemObject (and related) setup
 	fileSizeMax = int64(1048576.0 * *cacheMax) // gets megabytes value in bytes
-	FileSystem = NewFileSystemObject(int(*cacheSize))
+	FileSystem = newFileSystemObject(int(*cacheSize))
 
 	// If no restricted files provided, set to the disabled function. Else, compile and enable
 	if *restrictedPathsList == "" {
-		SystemLog.Info("Path restrictions disabled")
+		SystemLog.Info(pathRestrictionsDisabledStr)
 		IsRestrictedPath = isRestrictedPathDisabled
 	} else {
-		SystemLog.Info("Path restrictions enabled")
+		SystemLog.Info(pathRestrictionsEnabledStr)
 		restrictedPaths = compileRestrictedPathsRegex(*restrictedPathsList)
 		IsRestrictedPath = isRestrictedPathEnabled
 	}
 
 	// If no remapped files provided, set to the disabled function. Else, compile and enable
 	if *remapRequestsList == "" {
-		SystemLog.Info("Request remapping disabled")
+		SystemLog.Info(requestRemapDisabledStr)
 		RemapRequest = remapRequestDisabled
 	} else {
-		SystemLog.Info("Request remapping enabled")
+		SystemLog.Info(requestRemapEnabledStr)
 		requestRemaps = compileRequestRemapRegex(*remapRequestsList)
 		RemapRequest = remapRequestEnabled
 	}
 
 	// If no CGI dir supplied, set to disabled function. Else, compile and enable
 	if *cgiDir == "" {
-		SystemLog.Info("CGI script support disabled")
+		SystemLog.Info(cgiSupportDisabledStr)
 		WithinCGIDir = withinCGIDirDisabled
 	} else {
-		SystemLog.Info("CGI script support enabled")
+		SystemLog.Info(cgiSupportEnabledStr)
 		cgiDirRegex = compileCGIRegex(*cgiDir)
 		cgiEnv = setupInitialCGIEnv(*safePath)
 		WithinCGIDir = withinCGIDirEnabled
 
 		// Enable HTTP compatible CGI scripts, or not
 		if *httpCompatCGI {
-			SystemLog.Info("CGI HTTP compatibility enabled, prefix buffer: %d", httpPrefixBuf)
+			SystemLog.Info(cgiHTTPCompatEnabledStr, httpPrefixBuf)
 			ExecuteCGIScript = executeCGIScriptStripHTTP
 			httpPrefixBufSize = int(*httpPrefixBuf)
 		} else {
@@ -131,18 +131,18 @@ func ParseFlagsAndSetup(errorMessageFunc func(ErrorCode) string) {
 
 	// If no user dir supplied, set to disabled function. Else, set user dir and enable
 	if userDir == "" {
-		SystemLog.Info("User directory support disabled")
+		SystemLog.Info(userDirDisabledStr)
 		getRequestPath = getRequestPathUserDirDisabled
 	} else {
-		SystemLog.Info("User directory support enabled")
+		SystemLog.Info(userDirEnabledStr)
 		getRequestPath = getRequestPathUserDirEnabled
 
 		// Clean the user dir to be safe
 		userDir = path.Clean(userDir)
 		if strings.HasPrefix(userDir, "..") {
-			SystemLog.Fatal("User directory with back-traversal not supported: %s", userDir)
+			SystemLog.Fatal(userDirBackTraverseErrStr, userDir)
 		} else {
-			SystemLog.Info("User directory: %s", userDir)
+			SystemLog.Info(userDirStr, userDir)
 		}
 	}
 
@@ -157,11 +157,11 @@ func ParseFlagsAndSetup(errorMessageFunc func(ErrorCode) string) {
 // Start begins operation of the server
 func Start(serve func(*Client)) {
 	// Start the FileSystemObject cache freshness monitor
-	SystemLog.Info("Starting cache monitor with freq: %s", monitorSleepTime)
+	SystemLog.Info(cacheMonitorStartStr, monitorSleepTime)
 	go FileSystem.StartMonitor()
 
 	// Start the listener
-	SystemLog.Info("Listening on: %s:%s (%s:%s)", BindAddr, Port, Hostname, FwdPort)
+	SystemLog.Info(listeningOnStr, BindAddr, Port, Hostname, FwdPort)
 	go func() {
 		for {
 			client, err := serverListener.Accept()
@@ -184,6 +184,6 @@ func Start(serve func(*Client)) {
 // ListenForOSSignals listens for OS signals and terminates the program if necessary
 func listenForOSSignals() {
 	sig := <-sigChannel
-	SystemLog.Info("Signal received: %v. Shutting down...", sig)
+	SystemLog.Info(signalReceivedStr, sig)
 	os.Exit(0)
 }

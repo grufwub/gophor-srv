@@ -28,14 +28,14 @@ var (
 
 // FileSystemObject holds onto an LRUCacheMap and manages access to it, handless freshness checking and multi-threading
 type FileSystemObject struct {
-	cache *LRUCacheMap
+	cache *lruCacheMap
 	sync.RWMutex
 }
 
 // NewFileSystemObject returns a new FileSystemObject
-func NewFileSystemObject(size int) *FileSystemObject {
+func newFileSystemObject(size int) *FileSystemObject {
 	return &FileSystemObject{
-		NewLRUCacheMap(size),
+		newLRUCacheMap(size),
 		sync.RWMutex{},
 	}
 }
@@ -56,9 +56,9 @@ func (fs *FileSystemObject) checkCacheFreshness() {
 	// Before anything get cache lock
 	fs.Lock()
 
-	fs.cache.Iterate(func(path string, file *File) {
+	fs.cache.Iterate(func(path string, f *file) {
 		// If this is a generated file we skip
-		if isGeneratedType(file) {
+		if isGeneratedType(f) {
 			return
 		}
 
@@ -72,8 +72,8 @@ func (fs *FileSystemObject) checkCacheFreshness() {
 
 		// Get last mod time and check freshness
 		lastMod := stat.ModTime().UnixNano()
-		if file.IsFresh() && file.LastRefresh() < lastMod {
-			file.SetUnfresh()
+		if f.IsFresh() && f.LastRefresh() < lastMod {
+			f.SetUnfresh()
 		}
 	})
 
@@ -82,8 +82,8 @@ func (fs *FileSystemObject) checkCacheFreshness() {
 }
 
 // OpenFile opens a file for reading (read-only, world-readable)
-func (fs *FileSystemObject) OpenFile(path *Path) (*os.File, Error) {
-	fd, err := os.OpenFile(path.Absolute(), os.O_RDONLY, 0444)
+func (fs *FileSystemObject) OpenFile(p *Path) (*os.File, Error) {
+	fd, err := os.OpenFile(p.Absolute(), os.O_RDONLY, 0444)
 	if err != nil {
 		return nil, WrapError(FileOpenErr, err)
 	}
@@ -91,8 +91,8 @@ func (fs *FileSystemObject) OpenFile(path *Path) (*os.File, Error) {
 }
 
 // StatFile performs a file stat on a file at path
-func (fs *FileSystemObject) StatFile(path *Path) (os.FileInfo, Error) {
-	stat, err := os.Stat(path.Absolute())
+func (fs *FileSystemObject) StatFile(p *Path) (os.FileInfo, Error) {
+	stat, err := os.Stat(p.Absolute())
 	if err != nil {
 		return nil, WrapError(FileStatErr, err)
 	}
@@ -130,7 +130,7 @@ func (fs *FileSystemObject) ReadFile(fd *os.File) ([]byte, Error) {
 // ScanFile scans a supplied file at file descriptor, using iterator function
 func (fs *FileSystemObject) ScanFile(fd *os.File, iterator func(string) bool) Error {
 	// Buffered reader
-	reader := bufio.NewReaderSize(fd, fileReadBufSize)
+	rdr := bufio.NewReaderSize(fd, fileReadBufSize)
 
 	// Iterate through file!
 	for {
@@ -140,7 +140,7 @@ func (fs *FileSystemObject) ScanFile(fd *os.File, iterator func(string) bool) Er
 		// Read until line-end, or file end!
 		for {
 			// Read a line
-			line, isPrefix, err := reader.ReadLine()
+			line, isPrefix, err := rdr.ReadLine()
 			if err != nil {
 				if err == io.EOF {
 					break
@@ -167,7 +167,7 @@ func (fs *FileSystemObject) ScanFile(fd *os.File, iterator func(string) bool) Er
 }
 
 // ScanDirectory reads the contents of a directory and performs the iterator function on each os.FileInfo entry returned
-func (fs *FileSystemObject) ScanDirectory(fd *os.File, iterator func(os.FileInfo)) Error {
+func (fs *FileSystemObject) ScanDirectory(fd *os.File, p *Path, iterator func(os.FileInfo, *Path)) Error {
 	dirList, err := fd.Readdir(-1)
 	if err != nil {
 		return WrapError(DirectoryReadErr, err)
@@ -178,7 +178,16 @@ func (fs *FileSystemObject) ScanDirectory(fd *os.File, iterator func(os.FileInfo
 
 	// Walk through the directory list using supplied iterator function
 	for _, info := range dirList {
-		iterator(info)
+		// Make new Path object
+		fp := p.JoinPath(info.Name())
+
+		// Skip restricted files
+		if IsRestrictedPath(fp) || WithinCGIDir(fp) {
+			continue
+		}
+
+		// Perform iterator
+		iterator(info, p.JoinPath(info.Name()))
 	}
 
 	return nil
@@ -194,7 +203,7 @@ func (fs *FileSystemObject) HandleClient(client *Client, request *Request, newFi
 	// Try remap request, log if so
 	ok := RemapRequest(request)
 	if ok {
-		client.LogInfo("Remapped request: %s %s", request.Path().Selector(), request.Params())
+		client.LogInfo(requestRemappedStr, request.Path().Selector(), request.Params())
 	}
 
 	// First check for file on disk
@@ -250,6 +259,7 @@ func (fs *FileSystemObject) HandleClient(client *Client, request *Request, newFi
 	}
 }
 
+// FetchFile attempts to fetch a file from the cache, using the supplied file stat, Path and serving client. Returns Error status
 func (fs *FileSystemObject) FetchFile(client *Client, fd *os.File, stat os.FileInfo, p *Path, newFileContents func(*Path) FileContents) Error {
 	// If file too big, write direct to client
 	if stat.Size() > fileSizeMax {
@@ -261,16 +271,16 @@ func (fs *FileSystemObject) FetchFile(client *Client, fd *os.File, stat os.FileI
 	defer fs.RUnlock()
 
 	// Now check for file in cache
-	file, ok := fs.cache.Get(p.Absolute())
+	f, ok := fs.cache.Get(p.Absolute())
 	if !ok {
 		// Create new file contents with supplied function
 		contents := newFileContents(p)
 
 		// Wrap contents in file
-		file = NewFile(contents)
+		f = newFile(contents)
 
 		// Cache the file contents
-		err := file.CacheContents(fd, p)
+		err := f.CacheContents(fd, p)
 		if err != nil {
 			// Unlock, return error
 			return err
@@ -281,37 +291,37 @@ func (fs *FileSystemObject) FetchFile(client *Client, fd *os.File, stat os.FileI
 		fs.Lock()
 
 		// Put file in cache
-		fs.cache.Put(p.Absolute(), file)
+		fs.cache.Put(p.Absolute(), f)
 
 		// Switch back to cache read lock, get file read lock
 		fs.Unlock()
 		fs.RLock()
-		file.RLock()
+		f.RLock()
 	} else {
 		// Get file read lock
-		file.RLock()
+		f.RLock()
 
 		// Check for file freshness
-		if !file.IsFresh() {
+		if !f.IsFresh() {
 			// Switch to file write lock
-			file.RUnlock()
-			file.Lock()
+			f.RUnlock()
+			f.Lock()
 
 			// Refresh file contents
-			err := file.CacheContents(fd, p)
+			err := f.CacheContents(fd, p)
 			if err != nil {
 				// Unlock file, return error
-				file.Unlock()
+				f.Unlock()
 				return err
 			}
 
 			// Done! Switch back to read lock
-			file.Unlock()
-			file.RLock()
+			f.Unlock()
+			f.RLock()
 		}
 	}
 
 	// Defer file unlock, write to client
-	defer file.RUnlock()
-	return file.WriteToClient(client, p)
+	defer f.RUnlock()
+	return f.WriteToClient(client, p)
 }

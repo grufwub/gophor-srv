@@ -7,7 +7,7 @@ import (
 
 // Client holds onto an open Conn to a client, along with connection information
 type Client struct {
-	conn *Conn
+	cn   *conn
 	ip   *net.IP
 	port string
 }
@@ -16,12 +16,12 @@ type Client struct {
 func NewClient(conn *net.TCPConn) *Client {
 	addr, _ := conn.RemoteAddr().(*net.TCPAddr)
 	ip, port := &addr.IP, strconv.Itoa(addr.Port)
-	return &Client{WrapConn(conn), ip, port}
+	return &Client{wrapConn(conn), ip, port}
 }
 
 // Conn returns the underlying conn
-func (c *Client) Conn() *Conn {
-	return c.conn
+func (c *Client) Conn() *conn {
+	return c.cn
 }
 
 // IP returns the client's IP string

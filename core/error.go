@@ -47,101 +47,101 @@ var getExtendedErrorMessage func(ErrorCode) string
 func getErrorMessage(code ErrorCode) string {
 	switch code {
 	case ConnWriteErr:
-		return "Conn write error"
+		return connWriteErrStr
 	case ConnReadErr:
-		return "Conn read error"
+		return connReadErrStr
 	case ConnCloseErr:
-		return "Conn close error"
+		return connCloseErrStr
 	case ListenerResolveErr:
-		return "Listener resolve error"
+		return listenerResolveErrStr
 	case ListenerBeginErr:
-		return "Listener begin error"
+		return listenerBeginErrStr
 	case ListenerAcceptErr:
-		return "Listener accept error"
+		return listenerAcceptErrStr
 	case InvalidIPErr:
-		return "Invalid IP"
+		return invalidIPErrStr
 	case InvalidPortErr:
-		return "Invalid port"
+		return invalidPortErrStr
 	case FileOpenErr:
-		return "File open error"
+		return fileOpenErrStr
 	case FileStatErr:
-		return "File stat error"
+		return fileStatErrStr
 	case FileReadErr:
-		return "File read error"
+		return fileReadErrStr
 	case FileTypeErr:
-		return "Unsupported file type"
+		return fileTypeErrStr
 	case DirectoryReadErr:
-		return "Directory read error"
+		return directoryReadErrStr
 	case RestrictedPathErr:
-		return "Restricted path"
+		return restrictedPathErrStr
 	case InvalidRequestErr:
-		return "Invalid request"
+		return invalidRequestErrStr
 	case CGIStartErr:
-		return "CGI start error"
+		return cgiStartErrStr
 	case CGIExitCodeErr:
-		return "CGI non-zero exit code"
+		return cgiExitCodeErrStr
 	case CGIStatus400Err:
-		return "CGI status: 400"
+		return cgiStatus400ErrStr
 	case CGIStatus401Err:
-		return "CGI status: 401"
+		return cgiStatus401ErrStr
 	case CGIStatus403Err:
-		return "CGI status: 403"
+		return cgiStatus403ErrStr
 	case CGIStatus404Err:
-		return "CGI status: 404"
+		return cgiStatus404ErrStr
 	case CGIStatus408Err:
-		return "CGI status: 408"
+		return cgiStatus408ErrStr
 	case CGIStatus410Err:
-		return "CGI status: 410"
+		return cgiStatus410ErrStr
 	case CGIStatus500Err:
-		return "CGI status: 500"
+		return cgiStatus500ErrStr
 	case CGIStatus501Err:
-		return "CGI status: 501"
+		return cgiStatus501ErrStr
 	case CGIStatus503Err:
-		return "CGI status: 503"
+		return cgiStatus503ErrStr
 	case CGIStatusUnknownErr:
-		return "CGI status: unknown"
+		return cgiStatusUnknownErrStr
 	default:
 		return getExtendedErrorMessage(code)
 	}
 }
 
-// RegularError simply holds an ErrorCode
-type RegularError struct {
+// regularError simply holds an ErrorCode
+type regularError struct {
 	code ErrorCode
 }
 
 // Error returns the error string for the underlying ErrorCode
-func (e *RegularError) Error() string {
+func (e *regularError) Error() string {
 	return getErrorMessage(e.code)
 }
 
 // Code returns the underlying ErrorCode
-func (e *RegularError) Code() ErrorCode {
+func (e *regularError) Code() ErrorCode {
 	return e.code
 }
 
 // NewError returns a new Error based on supplied ErrorCode
 func NewError(code ErrorCode) Error {
-	return &RegularError{code}
+	return &regularError{code}
 }
 
-// WrappedError wraps an existing error with new ErrorCode
-type WrappedError struct {
+// wrappedError wraps an existing error with new ErrorCode
+type wrappedError struct {
 	code ErrorCode
 	err  error
 }
 
 // Error returns the error string for underlying error and set ErrorCode
-func (e *WrappedError) Error() string {
+func (e *wrappedError) Error() string {
 	return getErrorMessage(e.code) + " - " + e.err.Error()
 }
 
 // Code returns the underlying ErrorCode
-func (e *WrappedError) Code() ErrorCode {
+func (e *wrappedError) Code() ErrorCode {
 	return e.code
 }
 
 // WrapError returns a new Error based on supplied error and ErrorCode
-func WrapError(code ErrorCode, err error) *WrappedError {
-	return &WrappedError{code, err}
+func WrapError(code ErrorCode, err error) Error {
+	return &wrappedError{code, err}
 }

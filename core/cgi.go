@@ -38,9 +38,7 @@ func setupInitialCGIEnv(safePath string) []string {
 
 // generateCGIEnv takes a Client, and Request object, the global constant slice and generates a full set of CGI environment variables
 func generateCGIEnv(client *Client, request *Request) []string {
-	env := cgiEnv
-
-	env = append(env, "REMOTE_ADDR="+client.IP())
+	env := append(cgiEnv, "REMOTE_ADDR="+client.IP())
 	env = append(env, "QUERY_STRING="+request.Params())
 	env = append(env, "SCRIPT_NAME="+request.Path().Relative())
 	env = append(env, "SCRIPT_FILENAME="+request.Path().Absolute())

@@ -21,7 +21,7 @@ func ParseURLEncodedRequest(received string) (*Request, Error) {
 	}
 
 	// Split into 2 substrings by '?'. URL path and query
-	rawPath, params := SplitBy(received, "?")
+	rawPath, params := splitBy(received, "?")
 
 	// Unescape path
 	rawPath, err := url.PathUnescape(rawPath)
@@ -35,18 +35,18 @@ func ParseURLEncodedRequest(received string) (*Request, Error) {
 
 // ParseInternalRequest parses an internal request string based on the current directory
 func ParseInternalRequest(p *Path, line string) *Request {
-	rawPath, params := SplitBy(line, "?")
+	rawPath, params := splitBy(line, "?")
 	if path.IsAbs(rawPath) {
 		return &Request{getRequestPath(rawPath), params}
 	}
-	return &Request{NewSanitizedPath(p.Root(), rawPath), params}
+	return &Request{newSanitizedPath(p.Root(), rawPath), params}
 }
 
 // getRequestPathUserDirEnabled creates a Path object from raw path, converting ~USER to user subdirectory roots, else at server root
 func getRequestPathUserDirEnabled(rawPath string) *Path {
 	if userPath := strings.TrimPrefix(rawPath, "/"); strings.HasPrefix(userPath, "~") {
 		// We found a user path! Split into the user part, and remaining path
-		user, remaining := SplitBy(userPath, "/")
+		user, remaining := splitBy(userPath, "/")
 
 		// Empty user, we been duped! Return server root
 		if len(user) <= 1 {
@@ -66,10 +66,10 @@ func getRequestPathUserDirEnabled(rawPath string) *Path {
 	}
 
 	// Return regular server root + rawPath
-	return NewSanitizedPath(Root, rawPath)
+	return newSanitizedPath(Root, rawPath)
 }
 
 // getRequestPathUserDirDisabled creates a Path object from raw path, always at server root
 func getRequestPathUserDirDisabled(rawPath string) *Path {
-	return NewSanitizedPath(Root, rawPath)
+	return newSanitizedPath(Root, rawPath)
 }

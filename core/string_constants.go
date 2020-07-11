@@ -2,75 +2,140 @@ package core
 
 // Core flag string constants
 const (
-	SysLogFlagStr = "sys-log"
-	SysLogDescStr = "System log output location file (or 'stdout', 'null')"
+	sysLogFlagStr = "sys-log"
+	sysLogDescStr = "System log output location ['stdout', 'null', $filename]"
 
-	AccLogFlagStr = "acc-log"
-	AccLogDescStr = "Access log output location file (or 'stdout', 'null')"
+	accLogFlagStr = "acc-log"
+	accLogDescStr = "Access log output location ['stdout', 'null', $filename]"
 
-	RootFlagStr = "root"
-	RootDescStr = "Server root directory"
+	rootFlagStr = "root"
+	rootDescStr = "Server root directory"
 
-	BindAddrFlagStr = "bind-addr"
-	BindAddrDescStr = "IP address to bind to"
+	bindAddrFlagStr = "bind-addr"
+	bindAddrDescStr = "IP address to bind to"
 
-	HostnameFlagStr = "hostname"
-	HostnameDescStr = "Server hostname (FQDN)"
+	hostnameFlagStr = "hostname"
+	hostnameDescStr = "Server hostname (FQDN)"
 
-	PortFlagStr = "port"
-	PortDescStr = "Port to listen on"
+	portFlagStr = "port"
+	portDescStr = "Port to listen on"
 
-	FwdPortFlagStr = "fwd-port"
-	FwdPortDescStr = "Outward-facing port (e.g. forwarding to Docker container)"
+	fwdPortFlagStr = "fwd-port"
+	fwdPortDescStr = "Outward-facing port"
 
-	ReadDeadlineFlagStr = "read-deadline"
-	ReadDeadlineDescStr = "Connection read deadline (timeout)"
+	readDeadlineFlagStr = "read-deadline"
+	readDeadlineDescStr = "Connection read deadline (timeout)"
 
-	WriteDeadlineFlagStr = "write-deadline"
-	WriteDeadlineDescStr = "Connection write deadline (timeout)"
+	writeDeadlineFlagStr = "write-deadline"
+	writeDeadlineDescStr = "Connection write deadline (timeout)"
 
-	ConnReadBufFlagStr = "conn-read-buf"
-	ConnReadBufDescStr = "Connection read buffer size (bytes)"
+	connReadBufFlagStr = "conn-read-buf"
+	connReadBufDescStr = "Connection read buffer size (bytes)"
 
-	ConnWriteBufFlagStr = "conn-write-buf"
-	ConnWriteBufDescStr = "Connection write buffer size (bytes)"
+	connWriteBufFlagStr = "conn-write-buf"
+	connWriteBufDescStr = "Connection write buffer size (bytes)"
 
-	ConnReadMaxFlagStr = "conn-read-max"
-	ConnReadMaxDescStr = "Connection read max (bytes)"
+	connReadMaxFlagStr = "conn-read-max"
+	connReadMaxDescStr = "Connection read max (bytes)"
 
-	FileReadBufFlagStr = "file-read-buf"
-	FileReadBufDescStr = "File read buffer size (bytes)"
+	fileReadBufFlagStr = "file-read-buf"
+	fileReadBufDescStr = "File read buffer size (bytes)"
 
-	MonitorSleepTimeFlagStr = "cache-monitor-freq"
-	MonitorSleepTimeDescStr = "File cache freshness monitor frequency"
+	monitorSleepTimeFlagStr = "cache-monitor-freq"
+	monitorSleepTimeDescStr = "File cache freshness monitor frequency"
 
-	CacheFileMaxFlagStr = "cache-file-max"
-	CacheFileMaxDescStr = "Max cached file size (megabytes)"
+	cacheFileMaxFlagStr = "cache-file-max"
+	cacheFileMaxDescStr = "Max cached file size (megabytes)"
 
-	CacheSizeFlagStr = "cache-size"
-	CacheSizeDescStr = "File cache size"
+	cacheSizeFlagStr = "cache-size"
+	cacheSizeDescStr = "File cache size"
 
-	RestrictPathsFlagStr = "restrict-paths"
-	RestrictPathsDescStr = "Restrict request paths as new-line separated list of regex statements"
+	restrictPathsFlagStr = "restrict-paths"
+	restrictPathsDescStr = "Restrict paths as new-line separated list of regex statements (see documenation)"
 
-	RemapRequestsFlagStr = "remap-requests"
-	RemapRequestsDescStr = "Remap requests as new-line separated list of remap statements (see docs for formatting)"
+	remapRequestsFlagStr = "remap-requests"
+	remapRequestsDescStr = "Remap requests as new-line separated list of remap statements (see documenation)"
 
-	CGIDirFlagStr = "cgi-dir"
-	CGIDirDescStr = "CGI scripts directory (empty to disable)"
+	cgiDirFlagStr = "cgi-dir"
+	cgiDirDescStr = "CGI scripts directory (empty to disable)"
 
-	MaxCGITimeFlagStr = "max-cgi-time"
-	MaxCGITimeDescStr = "Max CGI script execution time"
+	maxCGITimeFlagStr = "max-cgi-time"
+	maxCGITimeDescStr = "Max CGI script execution time"
 
-	SafePathFlagStr = "safe-path"
-	SafePathDescStr = "CGI environment safe PATH variable"
+	safePathFlagStr = "safe-path"
+	safePathDescStr = "CGI environment safe PATH variable"
 
-	HTTPCompatCGIFlagStr = "http-compat-cgi"
-	HTTPCompatCGIDescStr = "Enable HTTP compatibility for CGI scripts by stripping headers"
+	httpCompatCGIFlagStr = "http-compat-cgi"
+	httpCompatCGIDescStr = "Enable HTTP compatibility for CGI scripts by stripping headers"
 
-	HTTPPrefixBufFlagStr = "http-prefix-buf"
-	HTTPPrefixBufDescStr = "Buffer size used for stripping HTTP headers from CGI script output"
+	httpPrefixBufFlagStr = "http-prefix-buf"
+	httpPrefixBufDescStr = "Buffer size used for stripping HTTP headers"
 
-	UserDirFlagStr = "user-dir"
-	UserDirDescStr = "User's personal server directory"
+	userDirFlagStr = "user-dir"
+	userDirDescStr = "User's personal server directory"
+)
+
+// Log string constants
+const (
+	hostnameBindAddrEmptyStr = "At least one of hostname or bind-addr must be non-empty!"
+
+	listenerBeginFailStr = "Failed to start listener on %s:%s (%s)"
+	listeningOnStr       = "Listening on: %s:%s (%s:%s)"
+
+	cacheMonitorStartStr = "Starting cache monitor with freq: %s"
+
+	pathRestrictionsEnabledStr      = "Path restrictions enabled"
+	pathRestrictionsDisabledStr     = "Path restrictions disabled"
+	pathRestrictRegexCompileFailStr = "Failed compiling restricted path regex: %s"
+	pathRestrictRegexCompiledStr    = "Compiled restricted path regex: %s"
+
+	requestRemapEnabledStr          = "Request remapping enabled"
+	requestRemapDisabledStr         = "Request remapping disabled"
+	requestRemapRegexInvalidStr     = "Invalid request remap regex: %s"
+	requestRemapRegexCompileFailStr = "Failed compiling request remap regex: %s"
+	requestRemapRegexCompiledStr    = "Compiled path remap regex: %s"
+	requestRemappedStr              = "Remapped request: %s %s"
+
+	cgiSupportEnabledStr    = "CGI script support enabled"
+	cgiSupportDisabledStr   = "CGI script support disabled"
+	cgiDirOutsideRootStr    = "CGI directory must not be outside server root!"
+	cgiDirStr               = "CGI directory: %s"
+	cgiHTTPCompatEnabledStr = "CGI HTTP compatibility enabled, prefix buffer: %d"
+
+	userDirEnabledStr         = "User directory support enabled"
+	userDirDisabledStr        = "User directory support disabled"
+	userDirBackTraverseErrStr = "User directory with back-traversal not supported: %s"
+	userDirStr                = "User directory: %s"
+
+	signalReceivedStr = "Signal received: %v. Shutting down..."
+
+	logOutputErrStr = "Error opening log output %s: %s"
+
+	connWriteErrStr        = "Conn write error"
+	connReadErrStr         = "Conn read error"
+	connCloseErrStr        = "Conn close error"
+	listenerResolveErrStr  = "Listener resolve error"
+	listenerBeginErrStr    = "Listener begin error"
+	listenerAcceptErrStr   = "Listener accept error"
+	invalidIPErrStr        = "Invalid IP"
+	invalidPortErrStr      = "Invalid port"
+	fileOpenErrStr         = "File open error"
+	fileStatErrStr         = "File stat error"
+	fileReadErrStr         = "File read error"
+	fileTypeErrStr         = "Unsupported file type"
+	directoryReadErrStr    = "Directory read error"
+	restrictedPathErrStr   = "Restricted path"
+	invalidRequestErrStr   = "Invalid request"
+	cgiStartErrStr         = "CGI start error"
+	cgiExitCodeErrStr      = "CGI non-zero exit code"
+	cgiStatus400ErrStr     = "CGI status: 400"
+	cgiStatus401ErrStr     = "CGI status: 401"
+	cgiStatus403ErrStr     = "CGI status: 403"
+	cgiStatus404ErrStr     = "CGI status: 404"
+	cgiStatus408ErrStr     = "CGI status: 408"
+	cgiStatus410ErrStr     = "CGI status: 410"
+	cgiStatus500ErrStr     = "CGI status: 500"
+	cgiStatus501ErrStr     = "CGI status: 501"
+	cgiStatus503ErrStr     = "CGI status: 503"
+	cgiStatusUnknownErrStr = "CGI status: unknown"
 )

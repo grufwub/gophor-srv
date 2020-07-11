@@ -2,25 +2,39 @@ package gopher
 
 // Client error response strings
 const (
-	ErrorResponse400 = "400 Bad Request"
-	ErrorResponse401 = "401 Unauthorised"
-	ErrorResponse403 = "403 Forbidden"
-	ErrorResponse404 = "404 Not Found"
-	ErrorResponse408 = "408 Request Time-out"
-	ErrorResponse410 = "410 Gone"
-	ErrorResponse500 = "500 Internal Server Error"
-	ErrorResponse501 = "501 Not Implemented"
-	ErrorResponse503 = "503 Service Unavailable"
+	errorResponse400 = "400 Bad Request"
+	errorResponse401 = "401 Unauthorised"
+	errorResponse403 = "403 Forbidden"
+	errorResponse404 = "404 Not Found"
+	errorResponse408 = "408 Request Time-out"
+	errorResponse410 = "410 Gone"
+	errorResponse500 = "500 Internal Server Error"
+	errorResponse501 = "501 Not Implemented"
+	errorResponse503 = "503 Service Unavailable"
 )
 
 // Gopher flag string constants
 const (
-	PageWidthFlagStr = "page-width"
-	PageWidthDescStr = "Gopher page width"
+	pageWidthFlagStr = "page-width"
+	pageWidthDescStr = "Gopher page width"
 
-	FooterTextFlagStr = "footer-text"
-	FooterTextDescStr = "Footer text (empty to disable)"
+	footerTextFlagStr = "footer-text"
+	footerTextDescStr = "Footer text (empty to disable)"
 
-	SubgopherSizeMaxFlagStr = "subgopher-size-max"
-	SubgopherSizeMaxDescStr = "Subgophermap size max (megabytes)"
+	subgopherSizeMaxFlagStr = "subgopher-size-max"
+	subgopherSizeMaxDescStr = "Subgophermap size max (megabytes)"
+)
+
+// Log string constants
+const (
+	clientReadFailStr         = "Failed to read"
+	clientRedirectFmtStr      = "Redirecting to: %s"
+	clientRequestParseFailStr = "Failed to parse request"
+	clientServeFailStr        = "Failed to serve: %s"
+	clientServedStr           = "Served: %s"
+
+	invalidGophermapErrStr  = "Invalid gophermap"
+	subgophermapIsDirErrStr = "Subgophermap path is dir"
+	subgophermapSizeErrStr  = "Subgophermap size too large"
+	unknownErrStr           = "Unknown error code"
 )

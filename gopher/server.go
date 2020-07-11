@@ -11,7 +11,7 @@ func serve(client *core.Client) {
 	// Receive line from client
 	received, err := client.Conn().ReadLine()
 	if err != nil {
-		client.LogError("Failed to read")
+		client.LogError(clientReadFailStr)
 		handleError(client, err)
 		return
 	}
@@ -24,14 +24,14 @@ func serve(client *core.Client) {
 	line = strings.TrimPrefix(line, "URL:")
 	if len(line) < lenBefore {
 		client.Conn().WriteBytes(generateHTMLRedirect(line))
-		client.LogInfo("Redirecting to: %s", line)
+		client.LogInfo(clientRedirectFmtStr, line)
 		return
 	}
 
 	// Parse new request
 	request, err := core.ParseURLEncodedRequest(line)
 	if err != nil {
-		client.LogError("Failed to parse request")
+		client.LogError(clientRequestParseFailStr)
 		handleError(client, err)
 		return
 	}
@@ -67,17 +67,10 @@ func serve(client *core.Client) {
 			// Scan directory and build lines
 			err = fs.ScanDirectory(
 				fd,
-				func(file os.FileInfo) {
-					// Copy dir Path and append file name
-					filePath := p.JoinPath(file.Name())
-
-					// Skip restricted files
-					if core.IsRestrictedPath(filePath) || core.WithinCGIDir(filePath) {
-						return
-					}
-
+				p,
+				func(file os.FileInfo, fp *core.Path) {
 					// Append new formatted file listing (if correct type)
-					dirContents = appendFileListing(dirContents, file, filePath)
+					dirContents = appendFileListing(dirContents, file, fp)
 				},
 			)
 			if err != nil {
@@ -93,9 +86,9 @@ func serve(client *core.Client) {
 	// Final error handling
 	if err != nil {
 		handleError(client, err)
-		client.LogError("Failed to serve: %s", request.Path().Absolute())
+		client.LogError(clientServeFailStr, request.Path().Absolute())
 	} else {
-		client.LogInfo("Served: %s", request.Path().Absolute())
+		client.LogInfo(clientServedStr, request.Path().Absolute())
 	}
 }
 
@@ -108,9 +101,10 @@ func handleError(client *core.Client, err core.Error) {
 	core.SystemLog.Error(err.Error())
 }
 
+// newFileContents returns a new FileContents object
 func newFileContents(p *core.Path) core.FileContents {
 	if isGophermap(p) {
 		return &GophermapContents{}
 	}
-	return &FileContents{}
+	return &core.RegularFileContents{}
 }
