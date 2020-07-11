@@ -2,3 +2,4 @@ TODO:
     - add TLS support (only TLS??)
     - write gemini implementation
     - write tests
+    - look into HTTP strip writer implementation (improve?)
